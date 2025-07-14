@@ -1,0 +1,48 @@
+{
+  "name": "mcp-hana-monitoring",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "jest",
+    "build": "tsc -p tsconfig.json",
+    "start": "node ./dist/index.js",
+    "dev": "npx @modelcontextprotocol/inspector node ./dist/index.js",
+    "inspector": "npx @modelcontextprotocol/inspector",
+    "test-server": "npm run build && npx @modelcontextprotocol/inspector node ./dist/index.js",
+    "test:loadhistory": "npm run build && node ./dist/test/test-handler-handleLoadHistory.js",
+    "test:threadsamples": "npm run build && node ./dist/test/test-handler-handleThreadSamplesAggregation.js",
+    "test:handlers": "npm run build && node ./dist/test/run-handler-tests.js",
+    "test:handlers:jest": "npm run build && npx jest test/handler-db-integration-test.js --verbose",
+    "test:handlers:manual": "npm run build && node ./dist/test/run-handler-tests.js --manual",
+    "test:handlers:individual": "npm run build && node ./dist/test/run-handler-tests.js --individual",
+    "test:handlers:all": "npm run build && node ./dist/test/run-handler-tests.js --all"
+  },
+  "keywords": [
+    "hana",
+    "sap",
+    "monitoring",
+    "mcp",
+    "model-context-protocol",
+    "database"
+  ],
+  "author": "nothi",
+  "description": "SAP HANA Database Monitoring MCP Server for monitoring views and queries",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-repo/mcp-hana-monitoring.git"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/inspector": "^0.15.0",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.10.10",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.7.3"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.4.1",
+    "@sap/hana-client": "^2.21.38",
+    "dotenv": "^16.4.7"
+  }
+}

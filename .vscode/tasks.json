@@ -1,0 +1,12 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "shell",
+			"label": "Run TypeScript project",
+			"command": "npm install && npm run build && npm test",
+			"group": "test",
+			"isBackground": false
+		}
+	]
+}
