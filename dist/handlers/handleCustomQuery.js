@@ -36,7 +36,7 @@ async function handleCustomQuery(params) {
             return (0, utils_1.createErrorResponse)(new Error(validation.error), '쿼리 검증 실패');
         }
         const result = await (0, utils_1.executeQuery)(params.query);
-        const title = params.description ? `🔍 커스텀 쿼리: ${params.description}` : '🔍 커스텀 쿼리 결과';
+        const title = params.description ? `커스텀 쿼리: ${params.description}` : '🔍 커스텀 쿼리 결과';
         return (0, utils_1.formatQueryResult)(result, title);
     }
     catch (error) {

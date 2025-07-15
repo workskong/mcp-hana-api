@@ -27,7 +27,7 @@ async function handleServiceStats(params) {
         }
         query += ` ORDER BY HOST, SERVICE_NAME`;
         const result = await (0, utils_1.executeQuery)(query);
-        return (0, utils_1.formatQueryResult)(result, '🔧 HANA 서비스 통계');
+        return (0, utils_1.formatQueryResult)(result, 'HANA 서비스 통계');
     }
     catch (error) {
         return (0, utils_1.createErrorResponse)(`서비스 통계 조회 실패: ${error instanceof Error ? error.message : String(error)}`);

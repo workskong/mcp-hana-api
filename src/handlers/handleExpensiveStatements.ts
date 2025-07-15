@@ -34,8 +34,8 @@ export async function handleExpensiveStatements(params: ExpensiveStatementsParam
   try {
     // Extract and sanitize parameters with defaults
     const {
-      beginTime = '1000/10/18 07:58:00',
-      endTime = '9999/10/18 08:05:00',
+      beginTime = 'C-H1',
+      endTime = 'C',
       timezone = 'SERVER',
       host = '%',
       port = '%',
@@ -65,88 +65,6 @@ export async function handleExpensiveStatements(params: ExpensiveStatementsParam
 
     const query = `
 SELECT
-/* 
-[NAME]
-- HANA_SQL_ExpensiveStatements_2.00.040+
-
-[DESCRIPTION]
-- Load information for expensive SQL statements
-
-[SOURCE]
-- SAP Note 1969700
-
-[DETAILS AND RESTRICTIONS]
-- Only populated if expensive statements trace is activated (SAP Note 2180165)
-- Column STATEMENT_HASH available with SAP HANA >= 1.00.60
-- Column STATEMENT_EXECUTION_ID and view M_EXPENSIVE_STATEMENT_EXECUTION_LOCATION_STATISTICS available starting with SAP HANA 1.00.120.
-- SRV_PER_EXEC_MS only populated if the related client network communication was traced, activation
-  of SQL client network I/O trace via:
-
-  indexserver.ini --> [sql_client_network_io] --> enabled = true
-
-- Column SESSION_VARIABLES available with SAP HANA >= 2.00.040
-
-[VALID FOR]
-- Revisions:              >= 2.00.040
-
-[SQL COMMAND VERSION]
-- 2014/03/29:  1.0 (initial version)
-- 2014/11/05:  1.1 (DB_USER, OPERATION included)
-- 2014/11/18:  1.2 (MEMORY_SIZE included, OPERATION -> OPERATIONS)
-- 2014/12/05:  1.3 (SRV_PER_EXEC_MS included)
-- 2014/12/15:  1.4 (CPU_MS included)
-- 2014/12/18:  1.5 (BIND_VALUES added)
-- 2015/05/06:  1.6 (APPLICATION_SOURCE and HOST added)
-- 2016/02/14:  1.7 (ERROR_CODE / ERROR_TEXT included)
-- 2016/02/23:  1.8 (TIME_AGGREGATE_BY included)
-- 2016/03/12:  1.9 (MIN_MEM_GB included)
-- 2016/03/23:  2.0 (CONN_ID included)
-- 2016/12/31:  2.1 (TIME_AGGREGATE_BY = 'TS<seconds>' included)
-- 2017/10/23:  2.2 (M_EXPENSIVE_STATEMENT_EXECUTION_LOCATION_STATISTICS included)
-- 2017/10/26:  2.3 (TIMEZONE included)
-- 2018/01/07:  2.4 (AGGREGATE_BY = 'BINDS' added)
-- 2018/03/12:  2.5 (ORDER_BY = 'EXECUTIONS' added)
-- 2018/10/10:  2.6 (MIN_DURATION_S included)
-- 2018/12/04:  2.7 (shortcuts for BEGIN_TIME and END_TIME like 'C', 'E-S900' or 'MAX')
-- 2019/03/27:  2.8 (SQL_LEN and MIN_SQL_TEXT_LENGTH included)
-- 2020/06/02:  2.9 (PORT added)
-- 2023/12/21:  3.0 (BIND_VALUES filter added)
-- 2024/01/11:  3.1 (dedicated 2.00.040+ version including SESSION_VARIABLES, redesign of output columns)
-- 2024/06/08:  3.2 (WORKLOAD_CLASS_NAME added)
-
-[INVOLVED TABLES]
-- M_EXPENSIVE_STATEMENTS
-- M_EXPENSIVE_STATEMENT_EXECUTION_LOCATION_STATISTICS
-- M_SQL_CLIENT_NETWORK_IO
-
-[OUTPUT PARAMETERS]
-- START_TIME:          Last start time of SQL statement
-- STATEMENT_HASH:      Hash value of SQL statement
-- WORKLOAD_CLASS:      Workload class
-- EXECUTIONS:          Number of executions
-- ELAPSED_S:           Elapsed time (s)
-- CPU_S:               CPU time (s)
-- AVG_ELA_MS:          Average elapsed time per execution (ms)
-- AVG_CPU_MS:          Average CPU time per execution (ms)
-- AVG_LOCK_MS:         Average lock wait time per execution (ms)
-- AVG_RECORDS:         Rows returned per execution (ms)
-- AVG_MEM_GB:          Average memory used per execution (GB)
-- OPERATION:           SQL operation
-- BIND_VALUES:         Bind values
-- APP_SOURCE:          Application source
-- APP_USER:            Application user name
-- DB_USER:             Database user name
-- ERROR:               Error details (0 in case of successful execution)
-- SQL_LEN:             SQL statement text length
-- SQL_TEXT:            SQL statement text
-- HOST:                Host name
-- PORT:                Port
-- CONN_ID:             Connection ID
-- AVG_SRV_MS:          Server time per execution (ms) reported by SQL network client I/O trace (if enabled)
-- SESSION_VARIABLES:   List of session variables
-- LOCATION_STATISTICS: Memory consumption per node / service
-*/
-
   START_TIME,
   STATEMENT_HASH,
   WORKLOAD_CLASS,
@@ -503,9 +421,9 @@ ORDER BY
     const statementCount = Array.isArray(result) ? result.length : 0;
     console.log(`Found ${statementCount} expensive statements`);
     
-    return formatQueryResult(result, '💸 HANA 오래걸리거나 메모리 사용율이 높은 구문 분석');
+    return formatQueryResult(result, 'HANA Expensive Statements 조회');
   } catch (error) {
     console.error('Expensive statements query failed:', error);
-    return createErrorResponse(`오래걸리거나 메모리 사용율이 높은 구문 조회 실패: ${error instanceof Error ? error.message : String(error)}`);
+    return createErrorResponse(`HANA Expensive Statements 조회 조회 실패: ${error instanceof Error ? error.message : String(error)}`);
   }
 }

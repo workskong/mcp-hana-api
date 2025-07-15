@@ -13,7 +13,6 @@ const path_1 = __importDefault(require("path"));
 const dotenv_1 = __importDefault(require("dotenv"));
 // Import HANA monitoring handler functions
 const handleSystemOverview_1 = require("./handlers/handleSystemOverview");
-const handleMemoryUsage_1 = require("./handlers/handleMemoryUsage");
 const handleDiskUsage_1 = require("./handlers/handleDiskUsage");
 const handleCpuUsage_1 = require("./handlers/handleCpuUsage");
 const handleActiveSessions_1 = require("./handlers/handleActiveSessions");
@@ -62,25 +61,11 @@ class HanaMonitoringServer {
         this.setupHandlers();
     }
     setupHandlers() {
-        // ...existing code...
         // Handler for ListToolsRequest
         this.server.setRequestHandler(types_js_1.ListToolsRequestSchema, async () => {
             return {
                 tools: [
-                    {
-                        name: 'SQLCacheTopLists',
-                        description: 'SQL Cache Top 리스트 조회',
-                        inputSchema: {
-                            type: 'object',
-                            properties: {
-                                detailed: {
-                                    type: 'boolean',
-                                    description: 'SQL Cache Top 리스트 조회',
-                                    default: true
-                                }
-                            }
-                        }
-                    },
+                    // 시스템 모니터링 도구들
                     {
                         name: 'SystemOverview',
                         description: 'HANA 시스템 전체 개요 정보 조회',
@@ -91,24 +76,6 @@ class HanaMonitoringServer {
                                     type: 'boolean',
                                     description: '상세 정보 포함 여부',
                                     default: true
-                                }
-                            }
-                        }
-                    },
-                    {
-                        name: 'MemoryUsage',
-                        description: 'HANA 메모리 사용률 모니터링',
-                        inputSchema: {
-                            type: 'object',
-                            properties: {
-                                detailed: {
-                                    type: 'boolean',
-                                    description: '상세 정보 포함 여부',
-                                    default: true
-                                },
-                                host: {
-                                    type: 'string',
-                                    description: '특정 호스트로 필터링'
                                 }
                             }
                         }
@@ -187,7 +154,7 @@ class HanaMonitoringServer {
                                 },
                                 topN: {
                                     type: 'number',
-                                    description: '상위 N개 테이블만 조회',
+                                    description: '상위 N개 테이블 조회',
                                     default: 100
                                 }
                             }
@@ -195,7 +162,7 @@ class HanaMonitoringServer {
                     },
                     {
                         name: 'ServiceStats',
-                        description: 'HANA 서비스 상태 및 통계',
+                        description: 'HANA 서비스 상태 및 리소스 정보',
                         inputSchema: {
                             type: 'object',
                             properties: {
@@ -212,147 +179,125 @@ class HanaMonitoringServer {
                     },
                     {
                         name: 'CustomQuery',
-                        description: '사용자 정의 SELECT 쿼리 실행',
+                        description: '사용자 정의 SQL 쿼리 실행',
                         inputSchema: {
                             type: 'object',
                             properties: {
                                 query: {
                                     type: 'string',
-                                    description: '실행할 SELECT 쿼리'
+                                    description: '실행할 SQL 쿼리'
                                 },
                                 description: {
                                     type: 'string',
-                                    description: '쿼리에 대한 설명'
+                                    description: '쿼리 설명'
                                 }
                             },
                             required: ['query']
                         }
                     },
+                    // 성능 분석 도구들
                     {
                         name: 'LoadHistory',
-                        description: 'HANA Load History (시스템 부하 이력)',
-                        aliases: ['시스템 부하 상태, 로드 히스토리, 부하 이력', '부하 추이', '시스템 부하 이력', '시간 경과에 따른 시스템 부하 기록'],
+                        description: 'HANA Load History 성능 데이터 조회',
                         inputSchema: {
                             type: 'object',
                             properties: {
                                 beginTime: {
                                     type: 'string',
-                                    description: '시작 시간 (YYYY/MM/DD HH24:MI:SS, C, C-S<seconds>, C-M<minutes>, C-H<hours>, C-D<days>, C-W<weeks>)',
+                                    description: '시작 시간 (C-H1, C-M30 등)',
                                     default: 'C-H1'
                                 },
                                 endTime: {
                                     type: 'string',
-                                    description: '종료 시간 (YYYY/MM/DD HH24:MI:SS, C, C-S<seconds>, C-M<minutes>, C-H<hours>, C-D<days>, C-W<weeks>)',
+                                    description: '종료 시간 (C, B+H1 등)',
                                     default: 'C'
                                 },
                                 dataSource: {
                                     type: 'string',
                                     description: '데이터 소스 (CURRENT, HISTORY)',
-                                    enum: ['CURRENT', 'HISTORY'],
                                     default: 'CURRENT'
-                                },
-                                timeAggregateBy: {
-                                    type: 'string',
-                                    description: '시간 집계 방식 (HOUR, DAY, HOUR_OF_DAY, TS<seconds>, NONE)',
-                                    default: 'HOUR'
-                                },
-                                host: {
-                                    type: 'string',
-                                    description: '특정 호스트로 필터링'
-                                },
-                                port: {
-                                    type: 'string',
-                                    description: '특정 포트로 필터링'
-                                },
-                                minCpuPct: {
-                                    type: 'number',
-                                    description: '최소 CPU 사용률 임계값'
-                                },
-                                minSysCpuPct: {
-                                    type: 'number',
-                                    description: '최소 시스템 CPU 사용률 임계값'
-                                },
-                                timezone: {
-                                    type: 'string',
-                                    description: '시간대 (SERVER, UTC)',
-                                    enum: ['SERVER', 'UTC'],
-                                    default: 'SERVER'
-                                },
-                                excludeStandby: {
-                                    type: 'boolean',
-                                    description: 'Standby 노드 제외 여부',
-                                    default: true
                                 }
                             }
                         }
                     },
                     {
                         name: 'ThreadSamplesAggregation',
-                        description: 'HANA 스레드 샘플 요약 (시간대별)',
+                        description: 'HANA Thread Samples 집계 분석',
                         inputSchema: {
                             type: 'object',
                             properties: {
                                 beginTime: {
                                     type: 'string',
-                                    description: '시작 시간 (YYYY/MM/DD HH24:MI:SS, C, C-S<seconds>, C-M<minutes>, C-H<hours>, C-D<days>, C-W<weeks>)',
+                                    description: '시작 시간',
                                     default: 'C-H1'
                                 },
                                 endTime: {
                                     type: 'string',
-                                    description: '종료 시간 (YYYY/MM/DD HH24:MI:SS, C, C-S<seconds>, C-M<minutes>, C-H<hours>, C-D<days>, C-W<weeks>)',
+                                    description: '종료 시간',
                                     default: 'C'
-                                },
-                                dataSource: {
-                                    type: 'string',
-                                    description: '데이터 소스 (CURRENT, HISTORY)',
-                                    enum: ['CURRENT', 'HISTORY'],
-                                    default: 'HISTORY'
                                 },
                                 aggregateBy: {
                                     type: 'string',
-                                    description: '집계 기준 (HASH, THREAD_STATE, THREAD_TYPE, HOST, APP_NAME)',
-                                    enum: ['HASH', 'THREAD_STATE', 'THREAD_TYPE', 'HOST', 'APP_NAME'],
-                                    default: 'HASH'
-                                },
-                                resultRows: {
-                                    type: 'number',
-                                    description: '결과 행 수 제한',
-                                    default: 10
-                                },
-                                minSamplesTotal: {
-                                    type: 'number',
-                                    description: '최소 샘플 총수 필터',
-                                    default: -1
-                                },
-                                timeSliceS: {
-                                    type: 'number',
-                                    description: '시간 슬라이스 (초)',
-                                    default: 10
+                                    description: '집계 기준 (THREAD_STATE, THREAD_TYPE 등)',
+                                    default: 'THREAD_STATE'
                                 }
                             }
                         }
                     },
                     {
                         name: 'ExpensiveStatements',
-                        description: '비용이 높은 SQL 실행 내역 조회 (리소스 소모큰 쿼리)',
-                        aliases: ['비싼 쿼리, 비용이 높은 쿼리', '상위 쿼리', '느린 쿼리', '리소스 소모 쿼리', 'Expensive Statements', 'Top SQL'],
+                        description: 'HANA 비용이 높은 SQL 문장 조회',
                         inputSchema: {
                             type: 'object',
                             properties: {
-                                topN: {
+                                beginTime: {
+                                    type: 'string',
+                                    description: '시작 시간',
+                                    default: 'C-H1'
+                                },
+                                endTime: {
+                                    type: 'string',
+                                    description: '종료 시간',
+                                    default: 'C'
+                                },
+                                minDurationS: {
                                     type: 'number',
-                                    description: '상위 N개 쿼리만 조회',
+                                    description: '최소 실행 시간 (초)',
+                                    default: 60
+                                },
+                                minMemoryGB: {
+                                    type: 'number',
+                                    description: '최소 메모리 사용량 (GB)',
+                                    default: 1
+                                }
+                            }
+                        }
+                    },
+                    {
+                        name: 'SQLCacheTopLists',
+                        description: 'HANA SQL Cache Top 리스트 조회',
+                        inputSchema: {
+                            type: 'object',
+                            properties: {
+                                beginTime: {
+                                    type: 'string',
+                                    description: '시작 시간',
+                                    default: 'C-H1'
+                                },
+                                endTime: {
+                                    type: 'string',
+                                    description: '종료 시간',
+                                    default: 'C'
+                                },
+                                topNExecTime: {
+                                    type: 'number',
+                                    description: '실행 시간 기준 상위 N개',
                                     default: 10
                                 },
-                                orderBy: {
-                                    type: 'string',
-                                    description: '정렬 기준 (CPU, MEMORY, EXECUTION_TIME 등)',
-                                    default: 'CPU'
-                                },
-                                minExecTime: {
+                                topNTotalMemory: {
                                     type: 'number',
-                                    description: '최소 실행 시간 (ms)',
-                                    default: 1000
+                                    description: '메모리 사용량 기준 상위 N개',
+                                    default: 10
                                 }
                             }
                         }
@@ -474,24 +419,21 @@ class HanaMonitoringServer {
                                 uri,
                                 mimeType: 'application/json',
                                 text: JSON.stringify({
-                                    totalTools: 11,
+                                    totalTools: 12,
                                     categories: {
-                                        systemMonitoring: ['SystemOverview', 'MemoryUsage', 'DiskUsage', 'CpuUsage'],
-                                        sessionManagement: ['ActiveSessions', 'LongRunningQueries'],
-                                        databaseStats: ['TableStats', 'ServiceStats'],
-                                        performanceAnalysis: ['LoadHistory', 'ThreadSamplesAggregation'],
-                                        customQuery: ['CustomQuery']
+                                        systemMonitoring: ['SystemOverview', 'DiskUsage', 'CpuUsage', 'ActiveSessions', 'TableStats', 'ServiceStats', 'CustomQuery'],
+                                        performanceAnalysis: ['LoadHistory', 'ThreadSamplesAggregation', 'ExpensiveStatements', 'SQLCacheTopLists']
                                     },
                                     description: 'SAP HANA 데이터베이스 모니터링을 위한 MCP 서버입니다.',
                                     features: [
                                         '실시간 시스템 모니터링',
-                                        '메모리 및 디스크 사용률 추적',
-                                        '활성 세션 관리',
-                                        '장시간 실행 쿼리 감지',
-                                        '테이블 및 서비스 통계',
+                                        '메모리, 디스크, CPU 사용률 추적',
+                                        '활성 세션 및 테이블 통계',
                                         '사용자 정의 쿼리 실행',
                                         'Load History 성능 분석',
-                                        'Thread Samples 집계 분석'
+                                        'Thread Samples 집계 분석',
+                                        '비용이 높은 SQL 문장 감지',
+                                        'SQL Cache Top 리스트 조회'
                                     ]
                                 }, null, 2)
                             }
@@ -514,7 +456,7 @@ class HanaMonitoringServer {
                                         memoryUsage: {
                                             description: '메모리 사용률 상세',
                                             query: 'SELECT HOST, ROUND(USED_PHYSICAL_MEMORY/1024/1024/1024, 2) AS USED_GB, ROUND(FREE_PHYSICAL_MEMORY/1024/1024/1024, 2) AS FREE_GB FROM SYS.M_HOST_RESOURCE_UTILIZATION',
-                                            toolMapping: 'MemoryUsage'
+                                            toolMapping: 'Memory_TopConsumers'
                                         },
                                         activeSessions: {
                                             description: '현재 활성 세션',
@@ -570,23 +512,17 @@ class HanaMonitoringServer {
                                             detailed: { detailed: true },
                                             description: '시스템 전체 상태를 확인합니다.'
                                         },
-                                        MemoryUsage: {
+                                        DiskUsage: {
                                             basic: { detailed: false },
                                             detailed: { detailed: true },
                                             hostSpecific: { detailed: true, host: 'hostname' },
-                                            description: '메모리 사용률을 모니터링합니다.'
+                                            description: '디스크 사용률을 모니터링합니다.'
                                         },
                                         ActiveSessions: {
                                             all: { detailed: true },
                                             byUser: { detailed: true, userId: 'SYSTEM' },
                                             byApp: { detailed: true, applicationName: 'HDBStudio' },
                                             description: '활성 세션을 조회합니다.'
-                                        },
-                                        LongRunningQueries: {
-                                            default: { minDurationSeconds: 60, limit: 50 },
-                                            longRunning: { minDurationSeconds: 300, limit: 20 },
-                                            veryLong: { minDurationSeconds: 3600, limit: 10 },
-                                            description: '장시간 실행 중인 쿼리를 찾습니다.'
                                         },
                                         CustomQuery: {
                                             systemInfo: {
@@ -609,6 +545,17 @@ class HanaMonitoringServer {
                                             byState: { beginTime: 'C-H1', endTime: 'C', aggregateBy: 'THREAD_STATE' },
                                             byType: { beginTime: 'C-H1', endTime: 'C', aggregateBy: 'THREAD_TYPE' },
                                             description: 'Thread Samples 집계 데이터를 조회합니다.'
+                                        },
+                                        ExpensiveStatements: {
+                                            default: { minDurationS: 60, minMemoryGB: 1 },
+                                            longRunning: { minDurationS: 300, minMemoryGB: 2 },
+                                            memoryIntensive: { minDurationS: 30, minMemoryGB: 5 },
+                                            description: '비용이 높은 SQL 문장을 찾습니다.'
+                                        },
+                                        SQLCacheTopLists: {
+                                            default: { topNExecTime: 10, topNTotalMemory: 10 },
+                                            detailed: { topNExecTime: 20, topNTotalMemory: 20 },
+                                            description: 'SQL Cache Top 리스트를 조회합니다.'
                                         }
                                     }
                                 }, null, 2)
@@ -662,9 +609,6 @@ class HanaMonitoringServer {
                 switch (request.params.name) {
                     case 'SystemOverview':
                         response = await (0, handleSystemOverview_1.handleSystemOverview)(request.params.arguments);
-                        break;
-                    case 'MemoryUsage':
-                        response = await (0, handleMemoryUsage_1.handleMemoryUsage)(request.params.arguments);
                         break;
                     case 'DiskUsage':
                         response = await (0, handleDiskUsage_1.handleDiskUsage)(request.params.arguments);

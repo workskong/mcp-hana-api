@@ -19,7 +19,7 @@ async function handleDiskUsage(params) {
         }
         query += ` ORDER BY HOST, USAGE_TYPE`;
         const result = await (0, utils_1.executeQuery)(query);
-        return (0, utils_1.formatQueryResult)(result, '💿 HANA 디스크 사용률');
+        return (0, utils_1.formatQueryResult)(result, 'HANA 디스크 사용률');
     }
     catch (error) {
         return (0, utils_1.createErrorResponse)(`디스크 사용률 조회 실패: ${error instanceof Error ? error.message : String(error)}`);

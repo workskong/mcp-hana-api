@@ -35,7 +35,7 @@ export async function handleCpuUsage(params: CpuUsageParams): Promise<ToolRespon
     query += ` ORDER BY HOST, SERVER_TIMESTAMP DESC`;
 
     const result = await executeQuery(query);
-    return formatQueryResult(result, '🖥️ HANA CPU 사용률');
+    return formatQueryResult(result, 'HANA CPU 사용률');
   } catch (error) {
     return createErrorResponse(`CPU 사용률 조회 실패: ${error instanceof Error ? error.message : String(error)}`);
   }

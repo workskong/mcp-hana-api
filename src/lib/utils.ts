@@ -192,7 +192,7 @@ export function formatQueryResult(result: QueryResult, title: string = '쿼리 �
   const displayRows = result.rows.slice(0, 50);
   for (const row of displayRows) {
     const formattedRow = row.map((value, index) => {
-      const colWidth = Math.max(result.columns[index].length, 10);
+      const colWidth = Math.max((result.columns[index]?.length ?? 0), 10);
       const strValue = value === null ? 'NULL' : String(value);
       return strValue.padEnd(colWidth);
     }).join(' | ');

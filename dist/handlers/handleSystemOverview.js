@@ -24,7 +24,7 @@ async function handleSystemOverview(params) {
       ORDER BY DATABASE_NAME
     `;
         const result = await (0, utils_1.executeQuery)(query);
-        return (0, utils_1.formatQueryResult)(result, '🖥️ HANA 시스템 개요');
+        return (0, utils_1.formatQueryResult)(result, 'HANA 시스템 개요');
     }
     catch (error) {
         return (0, utils_1.createErrorResponse)(error, '시스템 개요 조회 실패');

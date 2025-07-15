@@ -149,7 +149,7 @@ export async function handleActiveSessions(params: ActiveSessionsParams): Promis
     const sessionCount = Array.isArray(result) ? result.length : 0;
     console.log(`Found ${sessionCount} active sessions`);
     
-    return formatQueryResult(result, '🔗 HANA 활성 세션');
+    return formatQueryResult(result, 'HANA 활성 세션');
   } catch (error) {
     console.error('Active sessions query failed:', error);
     return createErrorResponse(`활성 세션 조회 실패: ${error instanceof Error ? error.message : String(error)}`);

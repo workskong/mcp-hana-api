@@ -26,7 +26,6 @@ export async function handleThreadSamplesAggregation(
       AGGREGATE_BY = "'HASH'"
     } = params;
 
-    // 싱글 쿼트 이스케이프 함수
     const escape = (v: string) => v.replace(/'/g, "''");
 
     const sql = `
@@ -607,7 +606,7 @@ export async function handleThreadSamplesAggregation(
     `;
 
     const result = await executeQuery(sql);
-    return formatQueryResult(result, '🧵 HANA Thread Samples Aggregation');
+    return formatQueryResult(result, 'HANA Thread Samples Aggregation');
   } catch (error) {
     return createErrorResponse(error);
   }

@@ -46,7 +46,7 @@ export async function handleCustomQuery(params: CustomQueryParams): Promise<Tool
     }
 
     const result = await executeQuery(params.query);
-    const title = params.description ? `🔍 커스텀 쿼리: ${params.description}` : '🔍 커스텀 쿼리 결과';
+    const title = params.description ? `커스텀 쿼리: ${params.description}` : '🔍 커스텀 쿼리 결과';
     return formatQueryResult(result, title);
   } catch (error) {
     return createErrorResponse(error, '커스텀 쿼리 실행 실패');

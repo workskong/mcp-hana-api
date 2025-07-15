@@ -36,7 +36,7 @@ export async function handleServiceStats(params: ServiceStatsParams): Promise<To
     query += ` ORDER BY HOST, SERVICE_NAME`;
 
     const result = await executeQuery(query);
-    return formatQueryResult(result, '🔧 HANA 서비스 통계');
+    return formatQueryResult(result, 'HANA 서비스 통계');
   } catch (error) {
     return createErrorResponse(`서비스 통계 조회 실패: ${error instanceof Error ? error.message : String(error)}`);
   }

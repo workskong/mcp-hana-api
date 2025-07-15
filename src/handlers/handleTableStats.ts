@@ -8,6 +8,10 @@ export interface TableStatsParams {
 
 export async function handleTableStats(params: TableStatsParams): Promise<ToolResponse> {
   try {
+    // 파라미터 보정: 빈값(null, undefined, '')이면 '%'로 대체
+    const safeSchemaName = params.schemaName && params.schemaName.trim() !== '' ? params.schemaName : '%';
+    const safeTableName = params.tableName && params.tableName.trim() !== '' ? params.tableName : '%';
+
     let query = `
       SELECT 
         SCHEMA_NAME,
@@ -24,12 +28,12 @@ export async function handleTableStats(params: TableStatsParams): Promise<ToolRe
 
     const conditions: string[] = [];
     
-    if (params.schemaName) {
-      conditions.push(`SCHEMA_NAME = '${params.schemaName}'`);
+    if (safeSchemaName !== '%') {
+      conditions.push(`SCHEMA_NAME = '${safeSchemaName}'`);
     }
     
-    if (params.tableName) {
-      conditions.push(`TABLE_NAME LIKE '%${params.tableName}%'`);
+    if (safeTableName !== '%') {
+      conditions.push(`TABLE_NAME LIKE '%${safeTableName}%'`);
     }
 
     if (conditions.length > 0) {
@@ -40,7 +44,7 @@ export async function handleTableStats(params: TableStatsParams): Promise<ToolRe
     query = `SELECT TOP ${topN} * FROM (${query}) ORDER BY SIZE_MB DESC`;
 
     const result = await executeQuery(query);
-    return formatQueryResult(result, '📊 HANA 테이블 통계');
+    return formatQueryResult(result, 'HANA 테이블 통계');
   } catch (error) {
     return createErrorResponse(`테이블 통계 조회 실패: ${error instanceof Error ? error.message : String(error)}`);
   }

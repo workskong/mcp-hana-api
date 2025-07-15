@@ -25,7 +25,7 @@ export async function handleDiskUsage(params: DiskUsageParams): Promise<ToolResp
     query += ` ORDER BY HOST, USAGE_TYPE`;
 
     const result = await executeQuery(query);
-    return formatQueryResult(result, '💿 HANA 디스크 사용률');
+    return formatQueryResult(result, 'HANA 디스크 사용률');
   } catch (error) {
     return createErrorResponse(`디스크 사용률 조회 실패: ${error instanceof Error ? error.message : String(error)}`);
   }

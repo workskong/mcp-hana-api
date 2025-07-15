@@ -5,7 +5,6 @@ const utils_1 = require("../lib/utils");
 async function handleThreadSamplesAggregation(params = {}) {
     try {
         const { BEGIN_TIME = "'C-H1'", END_TIME = "'C'", STATEMENT_HASH = "'%'", STATEMENT_ID = "'%'", APP_USER = "'%'", APP_SOURCE = "'%'", PASSPORT_ACTION = "'%'", AGGREGATE_BY = "'HASH'" } = params;
-        // 싱글 쿼트 이스케이프 함수
         const escape = (v) => v.replace(/'/g, "''");
         const sql = `
     SELECT
@@ -584,7 +583,7 @@ async function handleThreadSamplesAggregation(params = {}) {
       SNAPSHOT_TIME DESC
     `;
         const result = await (0, utils_1.executeQuery)(sql);
-        return (0, utils_1.formatQueryResult)(result, '🧵 HANA Thread Samples Aggregation');
+        return (0, utils_1.formatQueryResult)(result, 'HANA Thread Samples Aggregation');
     }
     catch (error) {
         return (0, utils_1.createErrorResponse)(error);

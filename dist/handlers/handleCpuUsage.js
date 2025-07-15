@@ -28,7 +28,7 @@ async function handleCpuUsage(params) {
         }
         query += ` ORDER BY HOST, SERVER_TIMESTAMP DESC`;
         const result = await (0, utils_1.executeQuery)(query);
-        return (0, utils_1.formatQueryResult)(result, '🖥️ HANA CPU 사용률');
+        return (0, utils_1.formatQueryResult)(result, 'HANA CPU 사용률');
     }
     catch (error) {
         return (0, utils_1.createErrorResponse)(`CPU 사용률 조회 실패: ${error instanceof Error ? error.message : String(error)}`);

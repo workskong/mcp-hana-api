@@ -127,7 +127,7 @@ async function handleActiveSessions(params) {
         // Add result count logging
         const sessionCount = Array.isArray(result) ? result.length : 0;
         console.log(`Found ${sessionCount} active sessions`);
-        return (0, utils_1.formatQueryResult)(result, '🔗 HANA 활성 세션');
+        return (0, utils_1.formatQueryResult)(result, 'HANA 활성 세션');
     }
     catch (error) {
         console.error('Active sessions query failed:', error);

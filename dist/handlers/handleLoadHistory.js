@@ -2,25 +2,30 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleLoadHistory = handleLoadHistory;
 const utils_1 = require("../lib/utils");
-/**
- * HANA Load History 조회 함수 (MCP 활용 최적화)
- */
 async function handleLoadHistory(params) {
-    // 1. 파라미터 기본값 적용 (빈 문자열/undefined/null 모두 커버)
-    const beginTime = params.beginTime && params.beginTime.trim() ? params.beginTime : 'C-D1';
-    const endTime = params.endTime && params.endTime.trim() ? params.endTime : 'C';
-    const dataSource = params.dataSource && params.dataSource.trim() ? params.dataSource.toUpperCase() : 'HISTORY';
-    const timeAggregateBy = params.timeAggregateBy && params.timeAggregateBy.trim() ? params.timeAggregateBy : 'TS60';
-    // 2. 쿼리(원형 그대로, 바인딩 파라미터만 ?로)
-    const sql = `
+    try {
+        // Extract and sanitize parameters
+        const { beginTime = 'C-H1', // Default: 1 hour ago
+        endTime = 'C', // Default: current time
+        timeAggregateBy = 'NONE' // Default: no time aggregation
+         } = params;
+        // timeAggregateBy 값이 허용된 값 중 하나인지 체크
+        const allowedTimeAggregates = ['NONE', 'HOUR', 'DAY', 'HOUR_OF_DAY'];
+        const safeTimeAggregateBy = allowedTimeAggregates.includes(timeAggregateBy)
+            ? timeAggregateBy
+            : 'NONE';
+        // 파라미터를 명확하게 문자열로 변환하고 undefined/null 방지
+        const safeBeginTime = beginTime != null ? String(beginTime) : 'C-H1';
+        const safeEndTime = endTime != null ? String(endTime) : 'C';
+        const query = `
 SELECT
   SAMPLE_TIME SNAPSHOT_TIME,
   IFNULL(LPAD(SITE_ID, 2), '') ST,
   HOST,
   LPAD(PORT, 5) PORT,
-  LPAD(TO_DECIMAL(ROUND(PING_MS), 10, 0), 7) PING_MS,
-  LPAD(TO_DECIMAL((CPU_PCT * 100, 10, 2), 5)) * 100 CPU,
-  LPAD(TO_DECIMAL(SYS_CPU_PCT * 100, 10, 2), 5) SYS, 
+  LPAD(TO_DECIMAL(ROUND(PING_MS), 10, 0), 5) P_MS,
+  LPAD(TO_DECIMAL(CPU_PCT, 10, 2), 5) CPU,
+  LPAD(TO_DECIMAL(SYS_CPU_PCT, 10, 2), 5) SYS, 
   LPAD(TO_DECIMAL(USED_MEM_GB, 10, 2), 8) USED_GB,
   LPAD(TO_DECIMAL(ROUND(CONNECTIONS), 10, 0), 5) CONNS,
   LPAD(TO_DECIMAL(ROUND(TRANSACTIONS), 10, 0), 5) TRANS,
@@ -136,8 +141,8 @@ FROM
         L.HOST,
         CASE WHEN BI.AGGREGATE_BY = 'NONE' OR INSTR(BI.AGGREGATE_BY, 'PORT') != 0 THEN TO_VARCHAR(L.PORT) ELSE MAP(BI.PORT, '%', 'any', BI.PORT) END PORT,
         SUM(L.PING_TIME) PING_MS,
-        AVG(L.CPU) CPU_PCT,
-        AVG(L.SYSTEM_CPU) SYS_CPU_PCT,
+        SUM(L.CPU) CPU_PCT,
+        SUM(L.SYSTEM_CPU) SYS_CPU_PCT,
         SUM(L.MEMORY_USED) / 1024 / 1024 / 1024 USED_MEM_GB,
         SUM(L.SWAP_IN) / 1024 / 1024 SWAP_IN_MB,
         SUM(L.CONNECTIONS) CONNECTIONS,
@@ -187,6 +192,7 @@ FROM
             WHEN BEGIN_TIME LIKE 'E-D%'                          THEN ADD_SECONDS(TO_TIMESTAMP(END_TIME, 'YYYY/MM/DD HH24:MI:SS'), -SUBSTR_AFTER(BEGIN_TIME, 'E-D') * 86400)
             WHEN BEGIN_TIME LIKE 'E-W%'                          THEN ADD_SECONDS(TO_TIMESTAMP(END_TIME, 'YYYY/MM/DD HH24:MI:SS'), -SUBSTR_AFTER(BEGIN_TIME, 'E-W') * 86400 * 7)
             WHEN BEGIN_TIME =    'MIN'                           THEN TO_TIMESTAMP('1000/01/01 00:00:00', 'YYYY/MM/DD HH24:MI:SS')
+            WHEN BEGIN_TIME LIKE '____/__/__'                    THEN TO_TIMESTAMP(BEGIN_TIME || CHAR(32) || '00:00:00', 'YYYY/MM/DD HH24:MI:SS')
             WHEN SUBSTR(BEGIN_TIME, 1, 1) NOT IN ('C', 'E', 'M') THEN TO_TIMESTAMP(BEGIN_TIME, 'YYYY/MM/DD HH24:MI:SS')
           END BEGIN_TIME,
           CASE
@@ -201,6 +207,7 @@ FROM
             WHEN END_TIME LIKE 'B+H%'                          THEN ADD_SECONDS(TO_TIMESTAMP(BEGIN_TIME, 'YYYY/MM/DD HH24:MI:SS'), SUBSTR_AFTER(END_TIME, 'B+H') * 3600)
             WHEN END_TIME LIKE 'B+D%'                          THEN ADD_SECONDS(TO_TIMESTAMP(BEGIN_TIME, 'YYYY/MM/DD HH24:MI:SS'), SUBSTR_AFTER(END_TIME, 'B+D') * 86400)
             WHEN END_TIME LIKE 'B+W%'                          THEN ADD_SECONDS(TO_TIMESTAMP(BEGIN_TIME, 'YYYY/MM/DD HH24:MI:SS'), SUBSTR_AFTER(END_TIME, 'B+W') * 86400 * 7)
+            WHEN END_TIME LIKE '____/__/__'                    THEN TO_TIMESTAMP(END_TIME || CHAR(32) || '00:00:00', 'YYYY/MM/DD HH24:MI:SS')
             WHEN END_TIME =    'MAX'                           THEN TO_TIMESTAMP('9999/12/31 00:00:00', 'YYYY/MM/DD HH24:MI:SS')
             WHEN SUBSTR(END_TIME, 1, 1) NOT IN ('C', 'B', 'M') THEN TO_TIMESTAMP(END_TIME, 'YYYY/MM/DD HH24:MI:SS')
           END END_TIME,
@@ -225,10 +232,10 @@ FROM
             'HOUR_OF_DAY', 'HH24',
             TIME_AGGREGATE_BY ) TIME_AGGREGATE_BY
         FROM
-        ( SELECT
-            ? BEGIN_TIME,
-            ? END_TIME,
-            'TIMEZONE' TIMEZONE,
+        ( SELECT                      /* Modification section */
+            ? BEGIN_TIME,                  /* YYYY/MM/DD HH24:MI:SS timestamp, C, C-S<seconds>, C-M<minutes>, C-H<hours>, C-D<days>, C-W<weeks>, E-S<seconds>, E-M<minutes>, E-H<hours>, E-D<days>, E-W<weeks>, MIN */
+            ? END_TIME,                    /* YYYY/MM/DD HH24:MI:SS timestamp, C, C-S<seconds>, C-M<minutes>, C-H<hours>, C-D<days>, C-W<weeks>, B+S<seconds>, B+M<minutes>, B+H<hours>, B+D<days>, B+W<weeks>, MAX */
+            'SERVER' TIMEZONE,                              /* SERVER, UTC */
             -1 SITE_ID,
             '%' HOST,
             '%' PORT,
@@ -240,9 +247,9 @@ FROM
             -1 MIN_HANDLES,
             -1 MIN_REJECTIONS_PER_S,
             -1 MIN_QUEUE_SIZE,
-            ? DATA_SOURCE,
-            'TIME' AGGREGATE_BY,
-            ? TIME_AGGREGATE_BY
+            'CURRENT' DATA_SOURCE,           /* CURRENT, HISTORY */
+            'TIME' AGGREGATE_BY,               /* TIME, SITE_ID, HOST, PORT and comma separated combinations, NONE for no aggregation */
+            ? TIME_AGGREGATE_BY     /* HOUR, DAY, HOUR_OF_DAY or database time pattern, TS<seconds> for time slice, NONE for no aggregation */
           FROM
             DUMMY
         )
@@ -333,7 +340,7 @@ FROM
         BI.SITE_ID,
         BI.HOST,
         BI.MIN_CPU_PCT,
-        BI.MIN_SYS_CPU_PCT,
+        BI. MIN_SYS_CPU_PCT,
         BI.MIN_VERSIONS,
         BI.MIN_PING_MS,
         BI.MIN_HANDLES,
@@ -395,14 +402,30 @@ ORDER BY
   SITE_ID,
   HOST,
   PORT
-`;
-    const sqlParams = [beginTime, endTime, dataSource, timeAggregateBy];
-    try {
-        const result = await (0, utils_1.executeQuery)(sql, sqlParams);
-        return (0, utils_1.formatQueryResult)(result, 'HANA Load History');
+    `;
+        const queryParams = [
+            safeBeginTime,
+            safeEndTime,
+            safeTimeAggregateBy
+        ];
+        // Add logging for debugging
+        console.log('Executing active sessions query:', {
+            query: query.substring(0, 100) + '...',
+            params: queryParams,
+            filters: {
+                beginTime: safeBeginTime,
+                endTime: safeEndTime,
+                timeAggregateBy: safeTimeAggregateBy
+            }
+        });
+        const result = await (0, utils_1.executeQuery)(query, queryParams);
+        // Add result count logging
+        const sessionCount = Array.isArray(result) ? result.length : 0;
+        console.log(`Found ${sessionCount} active sessions`);
+        return (0, utils_1.formatQueryResult)(result, 'Active Sessions');
     }
     catch (error) {
-        const errMsg = `Load History 조회 실패: ${error instanceof Error ? error.message : String(error)}`;
-        return (0, utils_1.createErrorResponse)(errMsg);
+        console.error('Active sessions query failed:', error);
+        return (0, utils_1.createErrorResponse)(`Active sessions query failed: ${error instanceof Error ? error.message : String(error)}`);
     }
 }
