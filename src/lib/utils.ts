@@ -260,10 +260,12 @@ export function createSuccessResponse(content: string, title?: string): ToolResp
  * 날짜/시간 문자열을 HANA 형식(YYYY/MM/DD HH:mm:ss)으로 정규화합니다.
  * 다양한 입력 형식을 지원합니다:
  * - ISO 8601: 2025-07-09T00:00:00Z
- * - 날짜만: 2025-07-09
- * - 시간 포함: 2025-07-09 00:00:00
+ * - 날짜만: 2025-07-09, 2025.07.09, 2025/07/09
+ * - 시간 포함: 2025-07-09 00:00:00, 2025.07.09 00:00:00, 2025/07/09 00:00:00
  * - 상대 시간: now-24h+1m
  * - HANA 형식: C, C-H24, C-D1 등
+ *
+ * yyyy-mm-dd, yyyy.mm.dd, yyyy/mm/dd 등으로 입력된 경우 무조건 yyyy/MM/dd HH:mm:ss로 변환합니다.
  */
 export function normalizeDateTime(input: string | null | undefined): string | null {
   if (!input) return null;
@@ -274,23 +276,15 @@ export function normalizeDateTime(input: string | null | undefined): string | nu
 
   let norm = input.trim();
 
-  // yyyy-mm-dd[ hh:mm:ss] 또는 yyyy.mm.dd[ hh:mm:ss] → yyyy/MM/dd HH:mm:ss
-  if (/^\d{4}([-\.])\d{2}\1\d{2}( \d{2}:\d{2}(:\d{2})?)?$/.test(norm)) {
-    norm = norm.replace(/[-.]/g, '/');
-    if (/^\d{4}\/\d{2}\/\d{2}$/.test(norm)) norm += ' 00:00:00';
-    else if (/^\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}$/.test(norm)) norm += ':00';
-    return norm;
+  // yyyy-mm-dd, yyyy.mm.dd, yyyy/mm/dd (날짜만) → yyyy/MM/dd 00:00:00
+  if (/^\d{4}([-./])\d{2}\1\d{2}$/.test(norm)) {
+    norm = norm.replace(/[-.]/g, '/').replace(/\//g, '/');
+    return norm + ' 00:00:00';
   }
-
-  // yyyy-mm-dd (공백만 있는 경우)
-  if (/^\d{4}-\d{2}-\d{2}$/.test(norm)) {
-    norm = norm.replace(/-/g, '/') + ' 00:00:00';
-    return norm;
-  }
-
-  // yyyy-mm-dd hh:mm:ss (공백 포함)
-  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(norm)) {
-    norm = norm.replace(/-/g, '/');
+  // yyyy-mm-dd hh:mm:ss, yyyy.mm.dd hh:mm:ss, yyyy/mm/dd hh:mm:ss → yyyy/MM/dd HH:mm:ss
+  if (/^\d{4}([-./])\d{2}\1\d{2} \d{2}:\d{2}(:\d{2})?$/.test(norm)) {
+    norm = norm.replace(/[-.]/g, '/').replace(/\//g, '/');
+    if (/^\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}$/.test(norm)) norm += ':00';
     return norm;
   }
 
@@ -307,9 +301,7 @@ export function normalizeDateTime(input: string | null | undefined): string | nu
         const seconds = String(date.getSeconds()).padStart(2, '0');
         return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
       }
-    } catch (e) {
-      // ISO 파싱 실패 시 null 반환
-    }
+    } catch (e) {}
   }
 
   // 상대 시간 표현 처리 (now-24h+1m 등)
@@ -317,8 +309,6 @@ export function normalizeDateTime(input: string | null | undefined): string | nu
     try {
       const now = new Date();
       let offset = 0;
-      
-      // now-24h+1m 형식 파싱
       const matches = norm.match(/now([+-]\d+[smhdwy])?/);
       if (matches && matches[1]) {
         const timeExpr = matches[1];
@@ -328,7 +318,6 @@ export function normalizeDateTime(input: string | null | undefined): string | nu
             const sign = match[0];
             const value = parseInt(match.slice(1, -1));
             const unit = match.slice(-1);
-            
             let multiplier = 1;
             switch (unit) {
               case 's': multiplier = 1000; break;
@@ -338,7 +327,6 @@ export function normalizeDateTime(input: string | null | undefined): string | nu
               case 'w': multiplier = 7 * 24 * 60 * 60 * 1000; break;
               case 'y': multiplier = 365 * 24 * 60 * 60 * 1000; break;
             }
-            
             if (sign === '+') {
               offset += value * multiplier;
             } else {
@@ -347,7 +335,6 @@ export function normalizeDateTime(input: string | null | undefined): string | nu
           }
         }
       }
-      
       const adjustedDate = new Date(now.getTime() + offset);
       const year = adjustedDate.getFullYear();
       const month = String(adjustedDate.getMonth() + 1).padStart(2, '0');
@@ -356,34 +343,22 @@ export function normalizeDateTime(input: string | null | undefined): string | nu
       const minutes = String(adjustedDate.getMinutes()).padStart(2, '0');
       const seconds = String(adjustedDate.getSeconds()).padStart(2, '0');
       return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
-    } catch (e) {
-      // 상대 시간 파싱 실패 시 null 반환
-    }
+    } catch (e) {}
+  }
+
+  // HANA 특수 포맷(C, C-H24 등)은 그대로 반환
+  if (/^[CEB][\-+A-Z0-9]+$/.test(norm) || norm === 'MIN' || norm === 'MAX' || norm === 'CURRENT' || norm === 'HISTORY') {
+    return norm;
   }
 
   return null;
 }
 
 /**
- * 기본값을 적용합니다.
+ * 값이 undefined, null, ''(빈 문자열)이면 기본값을 반환하고, 아니면 '값' 형태로 감싸서 반환합니다.
  */
-export function applyDefaultValue<T>(value: T | undefined | null, defaultValue: T): T {
-  return value !== undefined && value !== null ? value : defaultValue;
-}
-
-/**
- * 문자열 기본값을 적용합니다.
- */
-export function applyStringDefault(value: string | undefined | null, defaultValue: string): string {
-  return value && value.trim() !== '' ? value : defaultValue;
-}
-
-/**
- * 날짜/시간 파라미터를 정규화하고 기본값을 적용합니다.
- */
-export function normalizeDateTimeParam(value: string | undefined | null, defaultValue: string): string {
-  const normalized = normalizeDateTime(value);
-  return normalized || defaultValue;
+export function getOrDefault(v: any, def: string): string {
+  return v !== undefined && v !== null && v !== '' ? `'${v}'` : def;
 }
 
 /**

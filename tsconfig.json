@@ -28,6 +28,6 @@
     "preserveWatchOutput": true,
     "pretty": true
   },
-  "include": ["src/**/*", "test/**/*"],
+  "include": ["src/**/*", "test/**/*", "sample/handleSample.ts"],
   "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts", "**/handleSample.ts"]
 }

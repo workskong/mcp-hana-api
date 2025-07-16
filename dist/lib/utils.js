@@ -41,9 +41,7 @@ exports.formatQueryResult = formatQueryResult;
 exports.createErrorResponse = createErrorResponse;
 exports.createSuccessResponse = createSuccessResponse;
 exports.normalizeDateTime = normalizeDateTime;
-exports.applyDefaultValue = applyDefaultValue;
-exports.applyStringDefault = applyStringDefault;
-exports.normalizeDateTimeParam = normalizeDateTimeParam;
+exports.getOrDefault = getOrDefault;
 exports.cleanup = cleanup;
 const hana = __importStar(require("@sap/hana-client"));
 let connection = null;
@@ -254,10 +252,12 @@ function createSuccessResponse(content, title) {
  * 날짜/시간 문자열을 HANA 형식(YYYY/MM/DD HH:mm:ss)으로 정규화합니다.
  * 다양한 입력 형식을 지원합니다:
  * - ISO 8601: 2025-07-09T00:00:00Z
- * - 날짜만: 2025-07-09
- * - 시간 포함: 2025-07-09 00:00:00
+ * - 날짜만: 2025-07-09, 2025.07.09, 2025/07/09
+ * - 시간 포함: 2025-07-09 00:00:00, 2025.07.09 00:00:00, 2025/07/09 00:00:00
  * - 상대 시간: now-24h+1m
  * - HANA 형식: C, C-H24, C-D1 등
+ *
+ * yyyy-mm-dd, yyyy.mm.dd, yyyy/mm/dd 등으로 입력된 경우 무조건 yyyy/MM/dd HH:mm:ss로 변환합니다.
  */
 function normalizeDateTime(input) {
     if (!input)
@@ -267,23 +267,16 @@ function normalizeDateTime(input) {
     if (allowedPattern.test(input))
         return input;
     let norm = input.trim();
-    // yyyy-mm-dd[ hh:mm:ss] 또는 yyyy.mm.dd[ hh:mm:ss] → yyyy/MM/dd HH:mm:ss
-    if (/^\d{4}([-\.])\d{2}\1\d{2}( \d{2}:\d{2}(:\d{2})?)?$/.test(norm)) {
-        norm = norm.replace(/[-.]/g, '/');
-        if (/^\d{4}\/\d{2}\/\d{2}$/.test(norm))
-            norm += ' 00:00:00';
-        else if (/^\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}$/.test(norm))
+    // yyyy-mm-dd, yyyy.mm.dd, yyyy/mm/dd (날짜만) → yyyy/MM/dd 00:00:00
+    if (/^\d{4}([-./])\d{2}\1\d{2}$/.test(norm)) {
+        norm = norm.replace(/[-.]/g, '/').replace(/\//g, '/');
+        return norm + ' 00:00:00';
+    }
+    // yyyy-mm-dd hh:mm:ss, yyyy.mm.dd hh:mm:ss, yyyy/mm/dd hh:mm:ss → yyyy/MM/dd HH:mm:ss
+    if (/^\d{4}([-./])\d{2}\1\d{2} \d{2}:\d{2}(:\d{2})?$/.test(norm)) {
+        norm = norm.replace(/[-.]/g, '/').replace(/\//g, '/');
+        if (/^\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}$/.test(norm))
             norm += ':00';
-        return norm;
-    }
-    // yyyy-mm-dd (공백만 있는 경우)
-    if (/^\d{4}-\d{2}-\d{2}$/.test(norm)) {
-        norm = norm.replace(/-/g, '/') + ' 00:00:00';
-        return norm;
-    }
-    // yyyy-mm-dd hh:mm:ss (공백 포함)
-    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(norm)) {
-        norm = norm.replace(/-/g, '/');
         return norm;
     }
     // ISO 8601 형식 처리
@@ -300,16 +293,13 @@ function normalizeDateTime(input) {
                 return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
             }
         }
-        catch (e) {
-            // ISO 파싱 실패 시 null 반환
-        }
+        catch (e) { }
     }
     // 상대 시간 표현 처리 (now-24h+1m 등)
     if (norm.startsWith('now')) {
         try {
             const now = new Date();
             let offset = 0;
-            // now-24h+1m 형식 파싱
             const matches = norm.match(/now([+-]\d+[smhdwy])?/);
             if (matches && matches[1]) {
                 const timeExpr = matches[1];
@@ -358,30 +348,19 @@ function normalizeDateTime(input) {
             const seconds = String(adjustedDate.getSeconds()).padStart(2, '0');
             return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
         }
-        catch (e) {
-            // 상대 시간 파싱 실패 시 null 반환
-        }
+        catch (e) { }
+    }
+    // HANA 특수 포맷(C, C-H24 등)은 그대로 반환
+    if (/^[CEB][\-+A-Z0-9]+$/.test(norm) || norm === 'MIN' || norm === 'MAX' || norm === 'CURRENT' || norm === 'HISTORY') {
+        return norm;
     }
     return null;
 }
 /**
- * 기본값을 적용합니다.
+ * 값이 undefined, null, ''(빈 문자열)이면 기본값을 반환하고, 아니면 '값' 형태로 감싸서 반환합니다.
  */
-function applyDefaultValue(value, defaultValue) {
-    return value !== undefined && value !== null ? value : defaultValue;
-}
-/**
- * 문자열 기본값을 적용합니다.
- */
-function applyStringDefault(value, defaultValue) {
-    return value && value.trim() !== '' ? value : defaultValue;
-}
-/**
- * 날짜/시간 파라미터를 정규화하고 기본값을 적용합니다.
- */
-function normalizeDateTimeParam(value, defaultValue) {
-    const normalized = normalizeDateTime(value);
-    return normalized || defaultValue;
+function getOrDefault(v, def) {
+    return v !== undefined && v !== null && v !== '' ? `'${v}'` : def;
 }
 /**
  * 정리 작업을 수행합니다.

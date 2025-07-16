@@ -2,39 +2,13 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleSQLCacheTopLists = handleSQLCacheTopLists;
 const utils_1 = require("../lib/utils");
-async function handleSQLCacheTopLists(params) {
-    const beginTime = params.beginTime && params.beginTime.trim() ? params.beginTime : 'C-H1';
-    const endTime = params.endTime && params.endTime.trim() ? params.endTime : 'C';
-    const timezone = params.timezone && params.timezone.trim() ? params.timezone : 'SERVER';
-    const host = params.host && params.host.trim() ? params.host : '%';
-    const port = params.port && params.port.trim() ? params.port : '%';
-    const schemaName = params.schemaName && params.schemaName.trim() ? params.schemaName : '%';
-    const tableLocation = params.tableLocation && params.tableLocation.trim() ? params.tableLocation : '%';
-    const tableName = params.tableName && params.tableName.trim() ? params.tableName : '%';
-    const dbUser = params.dbUser && params.dbUser.trim() ? params.dbUser : '%';
-    const isDistributedExecution = params.isDistributedExecution && params.isDistributedExecution.trim() ? params.isDistributedExecution : '%';
-    const sharingType = params.sharingType && params.sharingType.trim() ? params.sharingType : '%';
-    const sqlOrigin = params.sqlOrigin && params.sqlOrigin.trim() ? params.sqlOrigin : '%';
-    const sqlType = params.sqlType && params.sqlType.trim() ? params.sqlType : '%';
-    const store = params.store && params.store.trim() ? params.store : '%';
-    const engines = params.engines && params.engines.trim() ? params.engines : '%';
-    const topTableCount = typeof params.topTableCount === 'number' ? params.topTableCount : 2;
-    const minTopTableSizeMB = typeof params.minTopTableSizeMB === 'number' ? params.minTopTableSizeMB : -1;
-    const excludeInternal = params.excludeInternal && params.excludeInternal.trim() ? params.excludeInternal : ' ';
-    const dataSource = params.dataSource && params.dataSource.trim() ? params.dataSource : 'HISTORY';
-    const topNExecTime = typeof params.topNExecTime === 'number' ? params.topNExecTime : 20;
-    const topNPrepareTime = typeof params.topNPrepareTime === 'number' ? params.topNPrepareTime : 5;
-    const topNLockWaitTime = typeof params.topNLockWaitTime === 'number' ? params.topNLockWaitTime : 5;
-    const topNNetworkTime = typeof params.topNNetworkTime === 'number' ? params.topNNetworkTime : 5;
-    const topNRecords = typeof params.topNRecords === 'number' ? params.topNRecords : 10;
-    const topNExecutions = typeof params.topNExecutions === 'number' ? params.topNExecutions : 10;
-    const topNCalledThreads = typeof params.topNCalledThreads === 'number' ? params.topNCalledThreads : 5;
-    const topNTotalMemory = typeof params.topNTotalMemory === 'number' ? params.topNTotalMemory : 5;
-    const topNMaxMemory = typeof params.topNMaxMemory === 'number' ? params.topNMaxMemory : 5;
-    const topNMetadata = typeof params.topNMetadata === 'number' ? params.topNMetadata : 5;
+async function handleSQLCacheTopLists(params = {}) {
     try {
+        const beginTime = (0, utils_1.getOrDefault)(params.beginTime, `'C-H1'`);
+        const endTime = (0, utils_1.getOrDefault)(params.endTime, `'C'`);
+        const tableName = (0, utils_1.getOrDefault)(params.tableName, `'%'`);
         const query = `
-WITH
+WITH 
 BASIS_INFO AS
 ( SELECT
     GREATEST(BI.BEGIN_TIME, CASE BI.TIMEZONE WHEN 'UTC' THEN ADD_SECONDS(C.MIN_TIME, SECONDS_BETWEEN(CURRENT_TIMESTAMP, CURRENT_UTCTIMESTAMP)) ELSE C.MIN_TIME END) BEGIN_TIME,
@@ -127,35 +101,35 @@ BASIS_INFO AS
       TOP_N_METADATA
     FROM
     ( SELECT               /* Modification section */
-        ?  BEGIN_TIME,                      /* YYYY/MM/DD HH24:MI:SS timestamp, C, C-S<seconds>, C-M<minutes>, C-H<hours>, C-D<days>, C-W<weeks>, E-S<seconds>, E-M<minutes>, E-H<hours>, E-D<days>, E-W<weeks>, MIN */
-        ?  END_TIME,                        /* YYYY/MM/DD HH24:MI:SS timestamp, C, C-S<seconds>, C-M<minutes>, C-H<hours>, C-D<days>, C-W<weeks>, B+S<seconds>, B+M<minutes>, B+H<hours>, B+D<days>, B+W<weeks>, MAX */
-        ?  TIMEZONE,                        /* SERVER, UTC */
-        ?  HOST,
-        ?  PORT,
-        ?  SCHEMA_NAME,
-        ?  TABLE_LOCATION,
-        ?  TABLE_NAME,
-        ?  DB_USER,
-        ?  IS_DISTRIBUTED_EXECUTION,        /* TRUE, FALSE, % */
-        ?  SHARING_TYPE,
-        ?  SQL_ORIGIN,
-        ?  SQL_TYPE,
-        ?  STORE,
-        ?  ENGINES,
-        ?  TOP_TABLE_COUNT,
-        ?  MIN_TOP_TABLE_SIZE_MB,
-        ?  EXCLUDE_INTERNAL,
-        ?  DATA_SOURCE,                     /* CURRENT, HISTORY, RESET */
-        ?  TOP_N_EXEC_TIME,
-        ?  TOP_N_PREPARE_TIME,
-        ?  TOP_N_LOCK_WAIT_TIME,
-        ?  TOP_N_NETWORK_TIME,
-        ?  TOP_N_RECORDS,
-        ?  TOP_N_EXECUTIONS,
-        ?  TOP_N_CALLED_THREADS,
-        ?  TOP_N_TOTAL_MEMORY,
-        ?  TOP_N_MAX_MEMORY,
-        ?  TOP_N_METADATA
+        ${beginTime} BEGIN_TIME,                  /* YYYY/MM/DD HH24:MI:SS timestamp, C, C-S<seconds>, C-M<minutes>, C-H<hours>, C-D<days>, C-W<weeks>, E-S<seconds>, E-M<minutes>, E-H<hours>, E-D<days>, E-W<weeks>, MIN */
+        ${endTime} END_TIME,                    /* YYYY/MM/DD HH24:MI:SS timestamp, C, C-S<seconds>, C-M<minutes>, C-H<hours>, C-D<days>, C-W<weeks>, B+S<seconds>, B+M<minutes>, B+H<hours>, B+D<days>, B+W<weeks>, MAX */
+        'SERVER' TIMEZONE,                              /* SERVER, UTC */
+        '%' HOST,
+        '%' PORT,
+        '%' SCHEMA_NAME,
+        '%' TABLE_LOCATION,
+        ${tableName} TABLE_NAME,
+        '%' DB_USER,
+        '%' IS_DISTRIBUTED_EXECUTION,                    /* TRUE, FALSE, % */
+        '%' SHARING_TYPE,
+        '%' SQL_ORIGIN,
+        '%' SQL_TYPE,
+        '%' STORE,
+        '%' ENGINES,
+          2 TOP_TABLE_COUNT,
+         -1 MIN_TOP_TABLE_SIZE_MB,
+        ' ' EXCLUDE_INTERNAL,
+        'HISTORY' DATA_SOURCE,     /* CURRENT, HISTORY, RESET */
+        20 TOP_N_EXEC_TIME,
+        5  TOP_N_PREPARE_TIME,
+        5  TOP_N_LOCK_WAIT_TIME,
+        5  TOP_N_NETWORK_TIME,
+        10 TOP_N_RECORDS,
+        10 TOP_N_EXECUTIONS,
+        5  TOP_N_CALLED_THREADS,
+        5  TOP_N_TOTAL_MEMORY,
+        5  TOP_N_MAX_MEMORY,
+        5  TOP_N_METADATA
       FROM
         DUMMY
     )
@@ -1069,16 +1043,10 @@ FROM
 ORDER BY
   LINE_NO
     `;
-        const result = await (0, utils_1.executeQuery)(query, [
-            beginTime, endTime, timezone, host, port, schemaName, tableLocation, tableName, dbUser,
-            isDistributedExecution, sharingType, sqlOrigin, sqlType, store, engines, topTableCount,
-            minTopTableSizeMB, excludeInternal, dataSource, topNExecTime, topNPrepareTime,
-            topNLockWaitTime, topNNetworkTime, topNRecords, topNExecutions, topNCalledThreads,
-            topNTotalMemory, topNMaxMemory, topNMetadata
-        ]);
-        return (0, utils_1.formatQueryResult)(result, 'SQL Cache Top 리스트 조회');
+        const result = await (0, utils_1.executeQuery)(query);
+        return (0, utils_1.formatQueryResult)(result);
     }
     catch (error) {
-        return (0, utils_1.createErrorResponse)(error, 'SQL Cache Top 리스트 조회');
+        return (0, utils_1.createErrorResponse)(`조회 실패: ${error instanceof Error ? error.message : String(error)}`);
     }
 }

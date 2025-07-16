@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleSystemOverview = handleSystemOverview;
 const utils_1 = require("../lib/utils");
-async function handleSystemOverview(params) {
+async function handleSystemOverview() {
     try {
         const query = `
       SELECT 

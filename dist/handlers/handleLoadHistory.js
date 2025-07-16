@@ -2,21 +2,19 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleLoadHistory = handleLoadHistory;
 const utils_1 = require("../lib/utils");
-async function handleLoadHistory(params) {
+async function handleLoadHistory(params = {}) {
     try {
-        // Extract and sanitize parameters
-        const { beginTime = 'C-H1', // Default: 1 hour ago
-        endTime = 'C', // Default: current time
-        timeAggregateBy = 'NONE' // Default: no time aggregation
-         } = params;
-        // timeAggregateBy 값이 허용된 값 중 하나인지 체크
-        const allowedTimeAggregates = ['NONE', 'HOUR', 'DAY', 'HOUR_OF_DAY'];
-        const safeTimeAggregateBy = allowedTimeAggregates.includes(timeAggregateBy)
-            ? timeAggregateBy
-            : 'NONE';
-        // 파라미터를 명확하게 문자열로 변환하고 undefined/null 방지
-        const safeBeginTime = beginTime != null ? String(beginTime) : 'C-H1';
-        const safeEndTime = endTime != null ? String(endTime) : 'C';
+        const beginTime = (0, utils_1.getOrDefault)(params?.beginTime, `'C-H1'`);
+        const endTime = (0, utils_1.getOrDefault)(params?.endTime, `'C'`);
+        // timeAggregateBy 허용값 체크
+        let rawTimeAggregateBy = params?.timeAggregateBy;
+        rawTimeAggregateBy = rawTimeAggregateBy && rawTimeAggregateBy !== '' ? rawTimeAggregateBy : undefined;
+        let allowedTimeAggregates = ['HOUR', 'DAY', 'HOUR_OF_DAY', 'NONE'];
+        let isTS = typeof rawTimeAggregateBy === 'string' && /^TS\d+$/.test(rawTimeAggregateBy);
+        if (rawTimeAggregateBy && !allowedTimeAggregates.includes(rawTimeAggregateBy) && !isTS) {
+            return (0, utils_1.createErrorResponse)(`timeAggregateBy 파라미터는 'HOUR', 'DAY', 'HOUR_OF_DAY', /^TS\\d+$/, 'NONE' 만 허용합니다. (입력값: ${rawTimeAggregateBy})`);
+        }
+        const timeAggregateBy = rawTimeAggregateBy ? `'${rawTimeAggregateBy}'` : `'TS60'`;
         const query = `
 SELECT
   SAMPLE_TIME SNAPSHOT_TIME,
@@ -233,8 +231,8 @@ FROM
             TIME_AGGREGATE_BY ) TIME_AGGREGATE_BY
         FROM
         ( SELECT                      /* Modification section */
-            ? BEGIN_TIME,                  /* YYYY/MM/DD HH24:MI:SS timestamp, C, C-S<seconds>, C-M<minutes>, C-H<hours>, C-D<days>, C-W<weeks>, E-S<seconds>, E-M<minutes>, E-H<hours>, E-D<days>, E-W<weeks>, MIN */
-            ? END_TIME,                    /* YYYY/MM/DD HH24:MI:SS timestamp, C, C-S<seconds>, C-M<minutes>, C-H<hours>, C-D<days>, C-W<weeks>, B+S<seconds>, B+M<minutes>, B+H<hours>, B+D<days>, B+W<weeks>, MAX */
+            ${beginTime} BEGIN_TIME,                  /* YYYY/MM/DD HH24:MI:SS timestamp, C, C-S<seconds>, C-M<minutes>, C-H<hours>, C-D<days>, C-W<weeks>, E-S<seconds>, E-M<minutes>, E-H<hours>, E-D<days>, E-W<weeks>, MIN */
+            ${endTime} END_TIME,                    /* YYYY/MM/DD HH24:MI:SS timestamp, C, C-S<seconds>, C-M<minutes>, C-H<hours>, C-D<days>, C-W<weeks>, B+S<seconds>, B+M<minutes>, B+H<hours>, B+D<days>, B+W<weeks>, MAX */
             'SERVER' TIMEZONE,                              /* SERVER, UTC */
             -1 SITE_ID,
             '%' HOST,
@@ -248,8 +246,8 @@ FROM
             -1 MIN_REJECTIONS_PER_S,
             -1 MIN_QUEUE_SIZE,
             'CURRENT' DATA_SOURCE,           /* CURRENT, HISTORY */
-            'TIME' AGGREGATE_BY,               /* TIME, SITE_ID, HOST, PORT and comma separated combinations, NONE for no aggregation */
-            ? TIME_AGGREGATE_BY     /* HOUR, DAY, HOUR_OF_DAY or database time pattern, TS<seconds> for time slice, NONE for no aggregation */
+            'TIME, SITE_ID, HOST, PORT' AGGREGATE_BY,               /* TIME, SITE_ID, HOST, PORT and comma separated combinations, NONE for no aggregation */
+            ${timeAggregateBy} TIME_AGGREGATE_BY     /* HOUR, DAY, HOUR_OF_DAY or database time pattern, TS<seconds> for time slice, NONE for no aggregation */
           FROM
             DUMMY
         )
@@ -403,29 +401,24 @@ ORDER BY
   HOST,
   PORT
     `;
-        const queryParams = [
-            safeBeginTime,
-            safeEndTime,
-            safeTimeAggregateBy
-        ];
         // Add logging for debugging
         console.log('Executing active sessions query:', {
             query: query.substring(0, 100) + '...',
-            params: queryParams,
+            params: params,
             filters: {
-                beginTime: safeBeginTime,
-                endTime: safeEndTime,
-                timeAggregateBy: safeTimeAggregateBy
+                beginTime: beginTime,
+                endTime: endTime,
+                timeAggregateBy: timeAggregateBy
             }
         });
-        const result = await (0, utils_1.executeQuery)(query, queryParams);
+        const result = await (0, utils_1.executeQuery)(query);
         // Add result count logging
         const sessionCount = Array.isArray(result) ? result.length : 0;
         console.log(`Found ${sessionCount} active sessions`);
-        return (0, utils_1.formatQueryResult)(result, 'Active Sessions');
+        return (0, utils_1.formatQueryResult)(result);
     }
     catch (error) {
         console.error('Active sessions query failed:', error);
-        return (0, utils_1.createErrorResponse)(`Active sessions query failed: ${error instanceof Error ? error.message : String(error)}`);
+        return (0, utils_1.createErrorResponse)(`조회 실패: ${error instanceof Error ? error.message : String(error)}`);
     }
 }

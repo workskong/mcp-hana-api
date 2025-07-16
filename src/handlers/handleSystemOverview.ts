@@ -1,10 +1,8 @@
 import { executeQuery, formatQueryResult, createErrorResponse, ToolResponse } from '../lib/utils';
 
-export interface SystemOverviewParams {
-  detailed?: boolean;
-}
+export interface handleSystemOverview {}
 
-export async function handleSystemOverview(params: SystemOverviewParams): Promise<ToolResponse> {
+export async function handleSystemOverview(): Promise<ToolResponse> {
   try {
     const query = `
       SELECT 
@@ -25,7 +23,6 @@ export async function handleSystemOverview(params: SystemOverviewParams): Promis
       WHERE VALUE IS NOT NULL AND VALUE != ''
       ORDER BY DATABASE_NAME
     `;
-
     const result = await executeQuery(query);
     return formatQueryResult(result, 'HANA 시스템 개요');
   } catch (error) {

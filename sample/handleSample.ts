@@ -1,5 +1,5 @@
 // 샘플 핸들러 예시
-import { ToolResponse, createErrorResponse, createSuccessResponse } from '../lib/utils';
+import { ToolResponse, createErrorResponse, createSuccessResponse } from '../src/lib/utils';
 
 export interface SampleParams {
   message?: string;

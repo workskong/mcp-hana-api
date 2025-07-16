@@ -1,34 +1,42 @@
-import { executeQuery, formatQueryResult, createErrorResponse, ToolResponse } from '../lib/utils';
+import { executeQuery, formatQueryResult, createErrorResponse, ToolResponse, getOrDefault } from '../lib/utils';
 
-export interface ThreadSamplesAggregationParams {
-  BEGIN_TIME?: string;
-  END_TIME?: string;
-  STATEMENT_HASH?: string;
-  STATEMENT_ID?: string;
-  APP_USER?: string;
-  APP_SOURCE?: string;
-  PASSPORT_ACTION?: string;
-  AGGREGATE_BY?: string;
+export interface handleThreadSamples_AggregationPerTimeSlice {
+  beginTime?: string;
+  endTime?: string;
+  statementHash?: string;
+  statementId?: string;
+  appUser?: string;
+  appSource?: string;
+  passportAction?: string;
+  aggregateBy?: string;
 }
 
-export async function handleThreadSamplesAggregation(
-  params: ThreadSamplesAggregationParams = {}
+export async function handleThreadSamples_AggregationPerTimeSlice(
+  params: handleThreadSamples_AggregationPerTimeSlice = {}
 ): Promise<ToolResponse> {
   try {
-    const {
-      BEGIN_TIME = "'C-H1'",
-      END_TIME = "'C'",
-      STATEMENT_HASH = "'%'",
-      STATEMENT_ID = "'%'",
-      APP_USER = "'%'",
-      APP_SOURCE = "'%'",
-      PASSPORT_ACTION = "'%'",
-      AGGREGATE_BY = "'HASH'"
-    } = params;
-
-    const escape = (v: string) => v.replace(/'/g, "''");
-
-    const sql = `
+    const beginTime = getOrDefault(params.beginTime, `'C-H1'`); 
+    const endTime = getOrDefault(params.endTime, `'C'`);
+    const statementHash = getOrDefault(params.statementHash, `'%'`);
+    const statementId = getOrDefault(params.statementId, `'%'`);
+    const appUser = getOrDefault(params.appUser, `'%'`);
+    const appSource = getOrDefault(params.appSource, `'%'`);
+    const passportAction = getOrDefault(params.passportAction, `'%'`);
+    // aggregateBy 허용값 체크
+    const allowedAggregates = [
+      'SAMPLE_TIME', 'SITE_ID', 'HOST', 'PORT', 'THREAD_ID', 'THREAD_TYPE', 'THREAD_METHOD', 'THREAD_DETAIL',
+      'THREAD_STATE', 'STATE_LOCK', 'HASH', 'ROOT', 'DB_USER', 'APP_NAME', 'APP_USER', 'APP_SOURCE',
+      'APP_COMP_NAME', 'APP_COMP_TYPE', 'CLIENT_IP', 'CLIENT_PID', 'CONN_ID', 'LOCK_TYPE', 'LOCK_NAME',
+      'STATEMENT_ID', 'STAT_EXEC_ID', 'NUMA_NODE', 'STMT_THR_LMT', 'QUEUEING', 'PASSPORT_COMPONENT',
+      'PASSPORT_ACTION', 'WORKLOAD_CLASS'
+    ];
+    let aggregateBy = params.aggregateBy;
+    if (!allowedAggregates.includes(aggregateBy ?? '')) {
+      aggregateBy = 'HASH';
+    }
+    aggregateBy = `'${aggregateBy}'`;
+    
+    const query = `
     SELECT
       SNAPSHOT_TIME,
       KEY_FIGURE,
@@ -274,8 +282,8 @@ export async function handleThreadSamplesAggregation(
                 RESULT_ROWS
               FROM
               ( SELECT                                                      /* Modification section */
-                  ${BEGIN_TIME} BEGIN_TIME,                  /* YYYY/MM/DD HH24:MI:SS timestamp, C, C-S<seconds>, C-M<minutes>, C-H<hours>, C-D<days>, C-W<weeks>, E-S<seconds>, E-M<minutes>, E-H<hours>, E-D<days>, E-W<weeks>, MIN */
-                  ${END_TIME} END_TIME,                    /* YYYY/MM/DD HH24:MI:SS timestamp, C, C-S<seconds>, C-M<minutes>, C-H<hours>, C-D<days>, C-W<weeks>, B+S<seconds>, B+M<minutes>, B+H<hours>, B+D<days>, B+W<weeks>, MAX */
+                  ${beginTime} BEGIN_TIME,                  /* YYYY/MM/DD HH24:MI:SS timestamp, C, C-S<seconds>, C-M<minutes>, C-H<hours>, C-D<days>, C-W<weeks>, E-S<seconds>, E-M<minutes>, E-H<hours>, E-D<days>, E-W<weeks>, MIN */
+                  ${endTime} END_TIME,                    /* YYYY/MM/DD HH24:MI:SS timestamp, C, C-S<seconds>, C-M<minutes>, C-H<hours>, C-D<days>, C-W<weeks>, B+S<seconds>, B+M<minutes>, B+H<hours>, B+D<days>, B+W<weeks>, MAX */
                   'SERVER' TIMEZONE,                              /* SERVER, UTC */
                   CURRENT_SITE_ID() SITE_ID,
                   '%' HOST,
@@ -285,15 +293,15 @@ export async function handleThreadSamplesAggregation(
                   '%' THREAD_STATE,               /* e.g. 'Running', 'Network Read' or 'Semaphore Wait' */
                   '%' THREAD_METHOD,
                   '%' THREAD_DETAIL,
-                  ${STATEMENT_HASH} STATEMENT_HASH,
+                  ${statementHash} STATEMENT_HASH,
                   '%' ROOT_STATEMENT_HASH,
                   -1 STATEMENT_THREAD_LIMIT,
-                  ${STATEMENT_ID} STATEMENT_ID,
+                  ${statementId} STATEMENT_ID,
                   '%' STATEMENT_EXECUTION_ID,
                   '%' DB_USER,
                   '%' APP_NAME,
-                  ${APP_USER} APP_USER,
-                  ${APP_SOURCE} APP_SOURCE,
+                  ${appUser} APP_USER,
+                  ${appSource} APP_SOURCE,
                   '%' APP_COMP_NAME,
                   '%' APP_COMP_TYPE,
                   '%' LOCK_TYPE,
@@ -303,7 +311,7 @@ export async function handleThreadSamplesAggregation(
                   -1  CLIENT_PID,
                   -1  CONN_ID,
                   '%' PASSPORT_COMPONENT,
-                  ${PASSPORT_ACTION} PASSPORT_ACTION,
+                  ${passportAction} PASSPORT_ACTION,
                   '%' WORKLOAD_CLASS,
                   '%' JOB_QUEUEING,
                   -1  MIN_SAMPLES_TOTAL,
@@ -315,7 +323,7 @@ export async function handleThreadSamplesAggregation(
                   ' ' EXCLUDE_EMPTY_STATEMENT_IDS,
                   ' ' EXCLUDE_EMPTY_STATEMENT_EXECUTION_IDS,
                   'HISTORY' DATA_SOURCE,
-                  ${AGGREGATE_BY} AGGREGATE_BY,     /* SAMPLE_TIME, SITE_ID, HOST, PORT, THREAD_ID, THREAD_TYPE, THREAD_METHOD, THREAD_DETAIL, THREAD_STATE, STATE_LOCK, HASH, ROOT, DB_USER, APP_NAME, 
+                  ${aggregateBy} AGGREGATE_BY,     /* SAMPLE_TIME, SITE_ID, HOST, PORT, THREAD_ID, THREAD_TYPE, THREAD_METHOD, THREAD_DETAIL, THREAD_STATE, STATE_LOCK, HASH, ROOT, DB_USER, APP_NAME, 
                                                          APP_USER, APP_SOURCE, APP_COMP_NAME, APP_COMP_TYPE, CLIENT_IP, CLIENT_PID, CONN_ID, LOCK_TYPE, LOCK_NAME, STATEMENT_ID, STAT_EXEC_ID, NUMA_NODE, 
                                                          STMT_THR_LMT, QUEUEING, PASSPORT_COMPONENT, PASSPORT_ACTION, WORKLOAD_CLASS */
                   -1 RESULT_ROWS
@@ -605,7 +613,7 @@ export async function handleThreadSamplesAggregation(
       SNAPSHOT_TIME DESC
     `;
 
-    const result = await executeQuery(sql);
+    const result = await executeQuery(query);
     return formatQueryResult(result, 'HANA Thread Samples Aggregation');
   } catch (error) {
     return createErrorResponse(error);

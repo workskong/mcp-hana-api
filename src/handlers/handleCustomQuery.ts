@@ -1,6 +1,6 @@
 import { executeQuery, formatQueryResult, createErrorResponse, ToolResponse } from '../lib/utils';
 
-export interface CustomQueryParams {
+export interface handleCustomQuery {
   query: string;
   description?: string;
 }
@@ -37,7 +37,7 @@ function validateQuery(query: string): { isValid: boolean; error?: string } {
   return { isValid: true };
 }
 
-export async function handleCustomQuery(params: CustomQueryParams): Promise<ToolResponse> {
+export async function handleCustomQuery(params: handleCustomQuery): Promise<ToolResponse> {
   try {
     // 쿼리 유효성 검사
     const validation = validateQuery(params.query);

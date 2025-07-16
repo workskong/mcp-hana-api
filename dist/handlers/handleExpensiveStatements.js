@@ -2,10 +2,17 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleExpensiveStatements = handleExpensiveStatements;
 const utils_1 = require("../lib/utils");
-async function handleExpensiveStatements(params) {
+async function handleExpensiveStatements(params = {}) {
     try {
-        // Extract and sanitize parameters with defaults
-        const { beginTime = 'C-H1', endTime = 'C', timezone = 'SERVER', host = '%', port = '%', connectionId = -1, statementHash = '%', workloadClass = '%', appUser = '%', dbUser = '%', sqlPattern = '%', appSource = '%', bindValues = '%', sessionVariables = '%', errorCode = -1, errorText = '%', onlyErrors = false, sqlTextOutputLength = 40, minMemoryGB = -1, maxMemoryGB = -1, minDurationS = -1, minSqlTextLength = -1, operations = '%', aggregateBy = 'NONE', timeAggregateBy = 'NONE', orderBy = 'TIME', resultRows = -1 } = params;
+        const beginTime = (0, utils_1.getOrDefault)(params.beginTime, `'C-H1'`);
+        const endTime = (0, utils_1.getOrDefault)(params.endTime, `'C'`);
+        const statementHash = (0, utils_1.getOrDefault)(params.statementHash, `'%'`);
+        const workloadClass = (0, utils_1.getOrDefault)(params.workloadClass, `'%'`);
+        const appUser = (0, utils_1.getOrDefault)(params.appUser, `'%'`);
+        const appSource = (0, utils_1.getOrDefault)(params.appSource, `'%'`);
+        const bindValues = (0, utils_1.getOrDefault)(params.bindValues, `'%'`);
+        const timeAggregateBy = (0, utils_1.getOrDefault)(params.timeAggregateBy, `'TS60'`);
+        const orderBy = (0, utils_1.getOrDefault)(params.orderBy, `'TIME'`);
         const query = `
 SELECT
   START_TIME,
@@ -175,34 +182,34 @@ FROM
           'HOUR_OF_DAY', 'HH24',
           TIME_AGGREGATE_BY ) TIME_AGGREGATE_BY
       FROM
-      ( SELECT
-          ? BEGIN_TIME,
-          ? END_TIME,
-          ? TIMEZONE,
-          ? HOST,
-          ? PORT,
-          ? CONN_ID,
-          ? STATEMENT_HASH,
-          ? WORKLOAD_CLASS,
-          ? APP_USER,
-          ? DB_USER,
-          ? SQL_PATTERN,
-          ? APP_SOURCE,
-          ? BIND_VALUES,
-          ? SESSION_VARIABLES,
-          ? ERROR_CODE,
-          ? ERROR_TEXT,
-          ? ONLY_ERRORS,
-          ? SQL_TEXT_OUTPUT_LENGTH,
-          ? MIN_MEM_GB,
-          ? MAX_MEM_GB,
-          ? MIN_DURATION_S,
-          ? MIN_SQL_TEXT_LENGTH,
-          ? OPERATIONS,
-          ? AGGREGATE_BY,
-          ? TIME_AGGREGATE_BY,
-          ? ORDER_BY,
-          ? RESULT_ROWS
+      ( SELECT                                       /* Modification section */
+          ${beginTime} BEGIN_TIME,                  /* YYYY/MM/DD HH24:MI:SS timestamp, C, C-S<seconds>, C-M<minutes>, C-H<hours>, C-D<days>, C-W<weeks>, E-S<seconds>, E-M<minutes>, E-H<hours>, E-D<days>, E-W<weeks>, MIN */
+          ${endTime} END_TIME,                    /* YYYY/MM/DD HH24:MI:SS timestamp, C, C-S<seconds>, C-M<minutes>, C-H<hours>, C-D<days>, C-W<weeks>, B+S<seconds>, B+M<minutes>, B+H<hours>, B+D<days>, B+W<weeks>, MAX */
+          'SERVER' TIMEZONE,                              /* SERVER, UTC */
+          '%' HOST,
+          '%' PORT,
+          -1 CONN_ID,
+          ${statementHash} STATEMENT_HASH,
+          ${workloadClass} WORKLOAD_CLASS,
+          ${appUser} APP_USER,
+          '%' DB_USER,
+          '%' SQL_PATTERN,
+          ${appSource} APP_SOURCE,
+          ${bindValues} BIND_VALUES,
+          '%' SESSION_VARIABLES,
+          -1 ERROR_CODE,
+          '%' ERROR_TEXT,
+          ' ' ONLY_ERRORS,
+          40  SQL_TEXT_OUTPUT_LENGTH,
+          -1 MIN_MEM_GB,
+          -1 MAX_MEM_GB,
+          -1 MIN_DURATION_S,
+          -1 MIN_SQL_TEXT_LENGTH,
+          '%' OPERATIONS,     /* TOTAL for total values per statement (AGGREGATED_EXECUTION + CALL + EXECUTE + EXECUTE_DDL + INSERT + UPDATE + DELETE + COMPILE), various individual steps like SELECT or COMPILE */
+          'TIME, HOST, PORT, CONN_ID, HASH, APP_USER, DB_USER, OPERATION, SOURCE, ERROR, BINDS, SESS_VAR, WL_CLASS' AGGREGATE_BY,                         /* TIME, HOST, PORT, CONN_ID, HASH, APP_USER, DB_USER, OPERATION, SOURCE, ERROR, BINDS, SESS_VAR, WL_CLASS or comma separated combinations, NONE for no aggregation */
+          ${timeAggregateBy} TIME_AGGREGATE_BY,                    /* HOUR, DAY, HOUR_OF_DAY or database time pattern, TS<seconds> for time slice, NONE for no aggregation */
+          ${orderBy} ORDER_BY,                             /* TIME, DURATION, MEMORY, COUNT, CPU, EXECUTIONS, LENGTH */
+          -1 RESULT_ROWS
         FROM
           DUMMY
       )
@@ -292,77 +299,14 @@ WHERE
 ORDER BY
   ROW_NUM
     `;
-        const queryParams = [
-            beginTime,
-            endTime,
-            timezone,
-            host,
-            port,
-            connectionId,
-            statementHash,
-            workloadClass,
-            appUser,
-            dbUser,
-            sqlPattern,
-            appSource,
-            bindValues,
-            sessionVariables,
-            errorCode,
-            errorText,
-            onlyErrors ? 'X' : ' ',
-            sqlTextOutputLength,
-            minMemoryGB,
-            maxMemoryGB,
-            minDurationS,
-            minSqlTextLength,
-            operations,
-            aggregateBy,
-            timeAggregateBy,
-            orderBy,
-            resultRows
-        ];
-        // Add logging for debugging
-        console.log('Executing expensive statements query:', {
-            query: query.substring(0, 100) + '...',
-            params: queryParams.length,
-            filters: {
-                beginTime,
-                endTime,
-                timezone,
-                host,
-                port,
-                connectionId,
-                statementHash,
-                workloadClass,
-                appUser,
-                dbUser,
-                sqlPattern,
-                appSource,
-                bindValues,
-                sessionVariables,
-                errorCode,
-                errorText,
-                onlyErrors,
-                sqlTextOutputLength,
-                minMemoryGB,
-                maxMemoryGB,
-                minDurationS,
-                minSqlTextLength,
-                operations,
-                aggregateBy,
-                timeAggregateBy,
-                orderBy,
-                resultRows
-            }
-        });
-        const result = await (0, utils_1.executeQuery)(query, queryParams);
+        const result = await (0, utils_1.executeQuery)(query);
         // Add result count logging
-        const statementCount = Array.isArray(result) ? result.length : 0;
-        console.log(`Found ${statementCount} expensive statements`);
-        return (0, utils_1.formatQueryResult)(result, 'HANA Expensive Statements 조회');
+        const sessionCount = Array.isArray(result) ? result.length : 0;
+        console.log(`Found ${sessionCount} active sessions`);
+        return (0, utils_1.formatQueryResult)(result);
     }
     catch (error) {
-        console.error('Expensive statements query failed:', error);
-        return (0, utils_1.createErrorResponse)(`HANA Expensive Statements 조회 조회 실패: ${error instanceof Error ? error.message : String(error)}`);
+        console.error('Active sessions query failed:', error);
+        return (0, utils_1.createErrorResponse)(`조회 실패: ${error instanceof Error ? error.message : String(error)}`);
     }
 }
