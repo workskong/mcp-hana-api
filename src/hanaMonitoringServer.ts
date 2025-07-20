@@ -29,7 +29,7 @@ export function getConfig(): HanaConfig {
   return {
     serverNode: 'localhost:30215',
     uid: 'SAPA4H',
-    pwd: 'ABAPtr2022#01'
+    pwd: 'ABAPtr2023#00'
   };
 }
 
@@ -43,17 +43,17 @@ export class HanaMonitoringServer {
   // 도구명-설명 매핑
   private toolDescriptions: Record<string, string> = {
     SystemOverview: 'HANA 시스템 전체 개요 정보 조회',
-    Resources_CPUAndMemory: 'HANA CPU/메모리 리소스 모니터링',
+    Resources_CPUAndMemory: 'HANA CPU와 메모리 리소스 모니터링 정보 조회',
     SQLCache: 'HANA SQL 캐시 정보 조회',
     ExpensiveStatements: 'HANA 비용이 높은 SQL 문장 조회',
     LoadHistory: 'HANA Load History 성능 데이터 조회',
     Memory_TopConsumers_TimeSlices: 'HANA 메모리 Top Consumers 집계 데이터 조회',
     SQLCacheTopLists: 'HANA SQL Cache Top 리스트 조회',
-    StatementHash_DataCollector: 'HANA Statement Hash 기반 상세 데이터 수집',
+    StatementHash_DataCollector: 'HANA Statement Hash 기반 상세 데이터 수집 정보 조회',
     CustomQuery: '사용자 정의 SQL 쿼리 실행',
-    Configuration_MiniChecks: 'HANA 미니 설정 점검',
+    Configuration_MiniChecks: 'HANA 미니 설정 점검 조회',
     ThreadSamples_AggregationPerTimeSlice: 'HANA Thread Samples 집계 데이터 조회',
-    ThreadSamples_FilterAndAggregation: 'HANA Thread Samples 필터 및 집계',
+    ThreadSamples_FilterAndAggregation: 'HANA Thread Samples 필터 및 집계 조회',
   };
 
   // 도구명-입력스키마 매핑 (간단 예시, 실제로는 각 도구별로 상세히 작성 필요)
