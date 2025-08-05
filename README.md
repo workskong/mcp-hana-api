@@ -1,149 +1,100 @@
+# MCP HANA Monitoring Server
 
-# mcp-hana-monitoring
+This project provides a Monitoring Server for SAP HANA databases, utilizing the Model Context Protocol (MCP). It allows users to monitor various aspects of a HANA database, including system overview, resource utilization, SQL cache, expensive statements, and more.
 
-**Model Context Protocol (MCP) Server for SAP HANA Database Monitoring**
+## Features
 
-This project provides a server for real-time monitoring of key SAP HANA resources (system, memory, disk, CPU, sessions, tables, services, and more). It supports custom queries and performance analysis, accessible via MCP Inspector or API.
+- **Comprehensive Monitoring:** Provides a wide range of tools for monitoring HANA databases.
+- **Extensible:** New monitoring tools can be easily added by implementing new handlers.
+- **MCP Compliant:** Implements the Model Context Protocol for standardized communication.
+- **Resource-based Information:** Exposes various information through resources, such as configuration, status, and query templates.
 
-## 🚀 Quick Start
+## Available Tools
+
+The server provides the following monitoring tools:
+
+- **SystemOverview:** HANA system overview information.
+- **Resources_CPUAndMemory:** HANA CPU and memory resource monitoring information.
+- **SQLCache:** HANA SQL cache information.
+- **ExpensiveStatements:** HANA expensive SQL statements.
+- **LoadHistory:** HANA Load History performance data.
+- **Memory_TopConsumers_TimeSlices:** HANA memory top consumers aggregated data.
+- **SQLCacheTopLists:** HANA SQL Cache top list.
+- **StatementHash_DataCollector:** HANA Statement Hash based detailed data collection.
+- **Configuration_MiniChecks:** HANA mini configuration checks.
+- **ThreadSamples_AggregationPerTimeSlice:** HANA Thread Samples aggregated data.
+- **ThreadSamples_FilterAndAggregation:** HANA Thread Samples filter and aggregation.
+
+## Resources
+
+The server exposes the following resources:
+
+- **`hana://config`:** HANA connection configuration.
+- **`hana://status`:** HANA connection status.
+- **`hana://tools-info`:** Detailed information about the available monitoring tools.
+- **`hana://templates/system-queries`:** SQL query templates for system monitoring.
+- **`hana://templates/performance-queries`:** SQL query templates for performance analysis.
+- **`hana://templates/tool-examples`:** Examples of how to use each tool.
+- **`hana://results/last-query`:** The result of the last executed query.
+- **`hana://results/query-history`:** A history of recently executed queries.
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js
+- An SAP HANA database instance
 
 ### Installation
 
-```bash
-git clone <your-repo-url>
-cd mcp-hana-monitoring
-npm install
-```
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/your-repo/mcp-hana-monitoring.git
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Create a `.env` file in the root directory with your HANA connection details:
+   ```
+   HANA_HOST=your_hana_host
+   HANA_PORT=your_hana_port
+   HANA_USER=your_hana_user
+   HANA_PASSWORD=your_hana_password
+   ```
 
-### Configuration
+### Running the Server
 
-Copy `.env.example` to `.env` and fill in your HANA connection details:
+- **Build the project:**
+  ```bash
+  npm run build
+  ```
+- **Start the server:**
+  ```bash
+  npm start
+  ```
+- **Start in development mode with inspector:**
+  ```bash
+  npm run dev
+  ```
 
-```env
-HANA_SERVER_NODE=localhost:30215
-HANA_USERNAME=XXXX
-HANA_PASSWORD=XXXX
-LOG_LEVEL=info
-MAX_HISTORY_SIZE=50
-MAX_RESULT_SIZE=1000
-```
+### Testing
 
-### Running
+The project includes a suite of tests to ensure the correctness of the handlers.
 
-```bash
-# Production
-npm run build
-npm start
+- **Run all tests:**
+  ```bash
+  npm run test:handlers:all
+  ```
+- **Run individual tests:**
+  ```bash
+  npm run test:handlers:individual
+  ```
+- **Run tests with Jest:**
+  ```bash
+  npm run test:handlers:jest
+  ```
 
-# Development (with Inspector)
-npm run dev
-```
+## How to Contribute
 
-## 🔍 MCP Inspector Integration
-
-You can use MCP Inspector in your browser for direct monitoring:
-
-```bash
-npx mcp-inspector
-```
-
-Open [http://127.0.0.1:6274](http://127.0.0.1:6274) in your browser and connect to the MCP server (127.0.0.1:6277).
-
-## 🏗️ Architecture
-
-- **Handler Structure**: Each monitoring tool is implemented as an independent handler function, dynamically invoked based on MCP requests.
-- **Server Class**: `HanaMonitoringServer` manages all MCP requests (tool list, resource list, query execution, etc.).
-- **Automatic Tool Registration**: Tool names, descriptions, input schemas, and handlers are automatically mapped and managed.
-- **Utilities**: HANA connection, query execution, result formatting, and error handling are managed in `lib/utils.ts`.
-
-## 📊 Supported Tools & Main Parameters
-
-| Tool Name | Description | Main Parameters |
-|-----------|-------------|----------------|
-| SystemOverview | Overview of HANA system status | - |
-| Resources_CPUAndMemory | CPU/Memory resource monitoring | beginTime, endTime, aggregationType, timeAggregateBy |
-| SQLCache | SQL plan cache statistics | beginTime, endTime, statementHash, appName, appSource, timeAggregateBy, orderBy |
-| ExpensiveStatements | Expensive SQL statement history | beginTime, endTime, statementHash, workloadClass, appUser, appSource, bindValues, timeAggregateBy, orderBy |
-| LoadHistory | Load history performance data | beginTime, endTime, aggregationType, timeAggregateBy |
-| Memory_TopConsumers_TimeSlices | Top memory consumers by time slice | beginTime, endTime, objectLevel, timeAggregateBy |
-| SQLCacheTopLists | SQL cache top N lists by table | beginTime, endTime, tableName |
-| StatementHash_DataCollector | Detailed statement hash execution history | beginTime, endTime, statementHash, maxResultLines, timeUnit |
-| CustomQuery | User-defined SELECT query (safe only) | query, description |
-| Configuration_MiniChecks | Mini configuration checks (best practices) | - |
-| ThreadSamples_AggregationPerTimeSlice | Thread sample aggregation by time slice | beginTime, endTime, statementHash, statementId, appUser, appSource, passportAction, aggregateBy |
-| ThreadSamples_FilterAndAggregation | Thread sample filtering/aggregation | beginTime, endTime, statementHash, rootStatementHash, statementId, appUser, appSource, passportAction, orderBy |
-
-### Tool Function Summaries
-
-- **SystemOverview**: Retrieves overall system and database overview.
-- **Resources_CPUAndMemory**: Aggregates HANA and OS CPU/memory/swap usage.
-- **SQLCache**: Statistics and aggregation for SQL plan cache.
-- **ExpensiveStatements**: History and aggregation of expensive SQL executions.
-- **LoadHistory**: Aggregated HANA load history.
-- **Memory_TopConsumers_TimeSlices**: Aggregates top memory-consuming tables/partitions.
-- **SQLCacheTopLists**: Top N SQL cache lists by table.
-- **StatementHash_DataCollector**: Collects detailed execution history for a statement hash.
-- **CustomQuery**: Executes user-provided SELECT queries (dangerous queries are blocked).
-- **Configuration_MiniChecks**: Checks for recommended HANA configuration.
-- **ThreadSamples_AggregationPerTimeSlice**: Aggregates thread samples by time.
-- **ThreadSamples_FilterAndAggregation**: Filters and aggregates thread samples by various conditions.
-
----
-
-## 📚 Resources & Templates
-
-- `hana://config` - HANA connection settings
-- `hana://status` - Connection status
-- `hana://tools-info` - Available tool information (by category)
-- `hana://templates/system-queries` - System query templates
-- `hana://templates/performance-queries` - Performance analysis query templates
-- `hana://templates/tool-examples` - Tool usage examples
-- `hana://results/last-query` - Last query result
-- `hana://results/query-history` - Query execution history
-
----
-
-### Usage Example
-
-```json
-{
-  "name": "SQLCache",
-  "arguments": {
-    "beginTime": "C-H1",
-    "endTime": "C",
-    "orderBy": "TIME"
-  }
-}
-```
-
-## 🔧 Logging & Error Handling
-
-- Control log level via the `LOG_LEVEL` environment variable (debug, info, warn, error)
-- All query executions and MCP requests are recorded with structured logging
-- Detailed error messages and stack traces are provided on failure
-
-## 🧪 Testing
-
-### Full Integration Test
-```bash
-npx ts-node ...
-```
-
-### Individual Handler Test
-```bash
-npx ts-node test/...
-# Runs test files for each handler in the test folder
-```
-
-## ⚙️ System Requirements
-
-### HANA Privileges
-- SELECT on system views (M_*)
-
-### Environment
-- SAP HANA 2.00.070+ recommended
-- Node.js
-
-## 📄 License
-
-MIT
+Contributions are welcome! Please feel free to submit a pull request or open an issue.

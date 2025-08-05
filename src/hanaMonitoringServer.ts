@@ -40,20 +40,20 @@ export class HanaMonitoringServer {
   private queryHistory: Array<{ timestamp: string; tool: string; params: any; result: any }> = [];
   private readonly maxHistorySize = 50;
 
-  // 도구명-설명 매핑
+  // Tool name-description mapping
   private toolDescriptions: Record<string, string> = {
-    SystemOverview: 'HANA 시스템 전체 개요 정보 조회',
-    Resources_CPUAndMemory: 'HANA CPU와 메모리 리소스 모니터링 정보 조회',
-    SQLCache: 'HANA SQL 캐시 정보 조회',
-    ExpensiveStatements: 'HANA 비용이 높은 SQL 문장 조회',
-    LoadHistory: 'HANA Load History 성능 데이터 조회',
-    Memory_TopConsumers_TimeSlices: 'HANA 메모리 Top Consumers 집계 데이터 조회',
-    SQLCacheTopLists: 'HANA SQL Cache Top 리스트 조회',
-    StatementHash_DataCollector: 'HANA Statement Hash 기반 상세 데이터 수집 정보 조회',
-    CustomQuery: '사용자 정의 SQL 쿼리 실행',
-    Configuration_MiniChecks: 'HANA 미니 설정 점검 조회',
-    ThreadSamples_AggregationPerTimeSlice: 'HANA Thread Samples 집계 데이터 조회',
-    ThreadSamples_FilterAndAggregation: 'HANA Thread Samples 필터 및 집계 조회',
+    SystemOverview: 'HANA system overview information',
+    Resources_CPUAndMemory: 'HANA CPU and memory resource monitoring information',
+    SQLCache: 'HANA SQL cache information',
+    ExpensiveStatements: 'HANA expensive SQL statements',
+    LoadHistory: 'HANA Load History performance data',
+    Memory_TopConsumers_TimeSlices: 'HANA memory top consumers aggregated data',
+    SQLCacheTopLists: 'HANA SQL Cache top list',
+    StatementHash_DataCollector: 'HANA Statement Hash based detailed data collection',
+    // CustomQuery: 'User-defined SQL query execution',
+    Configuration_MiniChecks: 'HANA mini configuration checks',
+    ThreadSamples_AggregationPerTimeSlice: 'HANA Thread Samples aggregated data',
+    ThreadSamples_FilterAndAggregation: 'HANA Thread Samples filter and aggregation',
   };
 
   // 도구명-입력스키마 매핑 (간단 예시, 실제로는 각 도구별로 상세히 작성 필요)
@@ -67,25 +67,25 @@ export class HanaMonitoringServer {
       properties: {
         beginTime: {
           type: 'string',
-          description: '시작 시간 (yyyy/mm/dd HH24:MI:SS, C-H1 등)',
+          description: 'Start time (yyyy/mm/dd HH24:MI:SS, C-H1, etc.)',
           default: 'C-H1',
           pattern: '^(\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}|C(-[SMHDW]\\d+)?|E-[SMHDW]\\d+|B\\+[SMHDW]\\d+|MIN)$'
         },
         endTime: {
           type: 'string',
-          description: '종료 시간 (yyyy/mm/dd HH24:MI:SS, C 등)',
+          description: 'End time (yyyy/mm/dd HH24:MI:SS, C, etc.)',
           default: 'C',
           pattern: '^(\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}|C(-[SMHDW]\\d+)?|B\\+[SMHDW]\\d+|MAX)$'
         },
         aggregationType: {
           type: 'string',
-          description: '집계 방식 (AVG: 평균, PEAK: 최대)',
+          description: 'Aggregation type (AVG: average, PEAK: peak)',
           default: 'AVG',
           enum: ['AVG', 'PEAK']
         },
         timeAggregateBy: {
           type: 'string',
-          description: "시간 집계 단위 ('HOUR', 'DAY', 'HOUR_OF_DAY', /^TS\\d+$/, 'NONE' 허용)",
+          description: "Time aggregation unit ('HOUR', 'DAY', 'HOUR_OF_DAY', /^TS\\d+$/, 'NONE' allowed)",
           default: 'TS60',
           pattern: '^(HOUR|DAY|HOUR_OF_DAY|TS\\d+|NONE)$'
         }
@@ -95,14 +95,18 @@ export class HanaMonitoringServer {
       type: 'object',
       properties: {
         beginTime: {
+    SQLCache: {
+      type: 'object',
+      properties: {
+        beginTime: {
           type: 'string',
-          description: '시작 시간 (yyyy/mm/dd HH24:MI:SS, C-H1 등)',
+          description: 'Start time (yyyy/mm/dd HH24:MI:SS, C-H1, etc.)',
           default: 'C-H1',
           pattern: '^(\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}|C(-[SMHDW]\\d+)?|E-[SMHDW]\\d+|B\\+[SMHDW]\\d+|MIN)$'
         },
         endTime: {
           type: 'string',
-          description: '종료 시간 (yyyy/mm/dd HH24:MI:SS, C 등)',
+          description: 'End time (yyyy/mm/dd HH24:MI:SS, C, etc.)',
           default: 'C',
           pattern: '^(\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}|C(-[SMHDW]\\d+)?|B\\+[SMHDW]\\d+|MAX)$'
         },
@@ -123,22 +127,18 @@ export class HanaMonitoringServer {
         },
         timeAggregateBy: {
           type: 'string',
-          description: "시간 집계 단위 ('HOUR', 'DAY', 'HOUR_OF_DAY', /^TS\\d+$/, 'NONE' 허용)",
+          description: "Time aggregation unit ('HOUR', 'DAY', 'HOUR_OF_DAY', /^TS\\d+$/, 'NONE' allowed)",
           default: 'TS60',
           pattern: '^(HOUR|DAY|HOUR_OF_DAY|TS\\d+|NONE)$'
         },
         orderBy: {
           type: 'string',
-          description: "정렬 기준 (허용값: TIME, EXEC, PREP, CURSOR, OPEN, FETCH, LOCK, EXECUTIONS, RECORDS, NETWORK_COUNT, NETWORK_SIZE, NETWORK_TIME, MEMORY, MEM_PER_EXEC, PLAN_MEM, THREAD, BC_MISS_COUNT, BC_IO_SIZE)",
+          description: "Sort key (allowed: TIME, EXEC, PREP, CURSOR, OPEN, FETCH, LOCK, EXECUTIONS, RECORDS, NETWORK_COUNT, NETWORK_SIZE, NETWORK_TIME, MEMORY, MEM_PER_EXEC, PLAN_MEM, THREAD, BC_MISS_COUNT, BC_IO_SIZE)",
           default: 'TIME',
           enum: ['TIME', 'EXEC', 'PREP', 'CURSOR', 'OPEN', 'FETCH', 'LOCK', 'EXECUTIONS', 'RECORDS', 'NETWORK_COUNT', 'NETWORK_SIZE', 'NETWORK_TIME', 'MEMORY', 'MEM_PER_EXEC', 'PLAN_MEM', 'THREAD', 'BC_MISS_COUNT', 'BC_IO_SIZE']
         }
       }
     },
-    ExpensiveStatements: {
-      type: 'object',
-      properties: {
-        beginTime: {
           type: 'string',
           description: '시작 시간 (yyyy/mm/dd 00:00:00 포맷 또는 C-D1, C-M30 등 상대적 시간)',
           default: 'C-D1',
@@ -254,14 +254,14 @@ export class HanaMonitoringServer {
       maxResultLines: { type: 'string', description: '최대 결과 줄 수', default: '30' },
       timeUnit: { type: 'string', description: '시간 단위 (MS, S, M, H, D)', default: 'MS', pattern: '^(MS|S|M|H|D)$' }
     } },
-    CustomQuery: {
-      type: 'object',
-      properties: {
-        query: { type: 'string', description: '실행할 SQL 쿼리' },
-        description: { type: 'string', description: '쿼리 설명' }
-      },
-      required: ['query']
-    },
+    // CustomQuery: {
+    //   type: 'object',
+    //   properties: {
+    //     query: { type: 'string', description: '실행할 SQL 쿼리' },
+    //     description: { type: 'string', description: '쿼리 설명' }
+    //   },
+    //   required: ['query']
+    // },
     Configuration_MiniChecks: { type: 'object', properties: {} },
     ThreadSamples_AggregationPerTimeSlice: { type: 'object', properties: {
       beginTime: {
@@ -316,7 +316,7 @@ export class HanaMonitoringServer {
     Memory_TopConsumers_TimeSlices: handleMemory_TopConsumers_TimeSlices,
     SQLCacheTopLists: handleSQLCacheTopLists,
     StatementHash_DataCollector: handleStatementHash_DataCollector,
-    CustomQuery: handleCustomQuery,
+    // CustomQuery: handleCustomQuery,
     Configuration_MiniChecks: handleConfiguration_MiniChecks,
     ThreadSamples_AggregationPerTimeSlice: handleThreadSamples_AggregationPerTimeSlice,
     ThreadSamples_FilterAndAggregation: handelThreadSamples_FilterAndAggregation,
