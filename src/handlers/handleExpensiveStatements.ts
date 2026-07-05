@@ -313,13 +313,8 @@ ORDER BY
 
     const result = await executeQuery(query);
 
-    // Add result count logging
-    const sessionCount = Array.isArray(result) ? result.length : 0;
-    console.log(`Found ${sessionCount} active sessions`);
-
     return formatQueryResult(result);
   } catch (error) {
-    console.error('Active sessions query failed:', error);
     return createErrorResponse(`조회 실패: ${error instanceof Error ? error.message : String(error)}`);
   }
 }

@@ -401,24 +401,10 @@ ORDER BY
   HOST,
   PORT
     `;
-        // Add logging for debugging
-        console.log('Executing active sessions query:', {
-            query: query.substring(0, 100) + '...',
-            params: params,
-            filters: {
-                beginTime: beginTime,
-                endTime: endTime,
-                timeAggregateBy: timeAggregateBy
-            }
-        });
         const result = await (0, utils_1.executeQuery)(query);
-        // Add result count logging
-        const sessionCount = Array.isArray(result) ? result.length : 0;
-        console.log(`Found ${sessionCount} active sessions`);
         return (0, utils_1.formatQueryResult)(result);
     }
     catch (error) {
-        console.error('Active sessions query failed:', error);
         return (0, utils_1.createErrorResponse)(`조회 실패: ${error instanceof Error ? error.message : String(error)}`);
     }
 }

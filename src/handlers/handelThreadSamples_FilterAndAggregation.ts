@@ -1109,7 +1109,6 @@ ORDER BY
 WITH HINT (IGNORE_PLAN_CACHE)
     
     `;
-    console.log('실행 쿼리:', query);
     const result = await executeQuery(query);
 
     return formatQueryResult(result, '');

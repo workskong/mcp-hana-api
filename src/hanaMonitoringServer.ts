@@ -8,28 +8,27 @@ import {
   ReadResourceRequestSchema,
   McpError,
 } from '@modelcontextprotocol/sdk/types.js';
-import path from 'path';
 import dotenv from 'dotenv';
-import { handelThreadSamples_FilterAndAggregation } from './handlers/handelThreadSamples_FilterAndAggregation';
-import { handleSQLCache } from './handlers/handleSQLCache';
-import { handleExpensiveStatements as handleConfiguration_MiniChecks } from './handlers/handleConfiguration_MiniChecks';
-import { handleCustomQuery } from './handlers/handleCustomQuery';
-import { handleResources_CPUAndMemory } from './handlers/handleResources_CPUAndMemory';
-import { handleExpensiveStatements } from './handlers/handleExpensiveStatements';
-import { handleLoadHistory } from './handlers/handleLoadHistory';
-import { handleMemory_TopConsumers_TimeSlices } from './handlers/handleMemory_TopConsumers_TimeSlices';
-import { handleSQLCacheTopLists } from './handlers/handleSQLCacheTopLists';
-import { handleStatementHash_DataCollector } from './handlers/handleStatementHash_DataCollector';
-import { handleSystemOverview } from './handlers/handleSystemOverview';
-import { handleThreadSamples_AggregationPerTimeSlice } from './handlers/handleThreadSamples_AggregationPerTimeSlice';
 import { createConnection, closeConnection, HanaConfig } from './lib/utils';
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
+import { toolDefinitions, type ToolDefinition } from './lib/toolDefinitions';
+dotenv.config();
 
 export function getConfig(): HanaConfig {
+  const serverNode = process.env.HANA_SERVER_NODE
+    || (process.env.HANA_HOST && process.env.HANA_PORT ? `${process.env.HANA_HOST}:${process.env.HANA_PORT}` : undefined)
+    || 'localhost:30215';
+
+  const uid = process.env.HANA_UID || process.env.HANA_USER || '';
+  const pwd = process.env.HANA_PWD || process.env.HANA_PASSWORD || '';
+
+  if (!uid || !pwd) {
+    throw new Error('Missing HANA credentials. Set HANA_UID/HANA_PWD or HANA_USER/HANA_PASSWORD in environment variables.');
+  }
+
   return {
-    serverNode: 'localhost:30215',
-    uid: 'SAPA4H',
-    pwd: 'ABAPtr2023#00'
+    serverNode,
+    uid,
+    pwd
   };
 }
 
@@ -39,288 +38,7 @@ export class HanaMonitoringServer {
   private lastQueryResult: any = null;
   private queryHistory: Array<{ timestamp: string; tool: string; params: any; result: any }> = [];
   private readonly maxHistorySize = 50;
-
-  // Tool name-description mapping
-  private toolDescriptions: Record<string, string> = {
-    SystemOverview: 'HANA system overview information',
-    Resources_CPUAndMemory: 'HANA CPU and memory resource monitoring information',
-    SQLCache: 'HANA SQL cache information',
-    ExpensiveStatements: 'HANA expensive SQL statements',
-    LoadHistory: 'HANA Load History performance data',
-    Memory_TopConsumers_TimeSlices: 'HANA memory top consumers aggregated data',
-    SQLCacheTopLists: 'HANA SQL Cache top list',
-    StatementHash_DataCollector: 'HANA Statement Hash based detailed data collection',
-    // CustomQuery: 'User-defined SQL query execution',
-    Configuration_MiniChecks: 'HANA mini configuration checks',
-    ThreadSamples_AggregationPerTimeSlice: 'HANA Thread Samples aggregated data',
-    ThreadSamples_FilterAndAggregation: 'HANA Thread Samples filter and aggregation',
-  };
-
-  // 도구명-입력스키마 매핑 (간단 예시, 실제로는 각 도구별로 상세히 작성 필요)
-  private toolInputSchemas: Record<string, any> = {
-    SystemOverview: {
-      type: 'object',
-      properties: {}
-    },
-    Resources_CPUAndMemory: {
-      type: 'object',
-      properties: {
-        beginTime: {
-          type: 'string',
-          description: 'Start time (yyyy/mm/dd HH24:MI:SS, C-H1, etc.)',
-          default: 'C-H1',
-          pattern: '^(\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}|C(-[SMHDW]\\d+)?|E-[SMHDW]\\d+|B\\+[SMHDW]\\d+|MIN)$'
-        },
-        endTime: {
-          type: 'string',
-          description: 'End time (yyyy/mm/dd HH24:MI:SS, C, etc.)',
-          default: 'C',
-          pattern: '^(\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}|C(-[SMHDW]\\d+)?|B\\+[SMHDW]\\d+|MAX)$'
-        },
-        aggregationType: {
-          type: 'string',
-          description: 'Aggregation type (AVG: average, PEAK: peak)',
-          default: 'AVG',
-          enum: ['AVG', 'PEAK']
-        },
-        timeAggregateBy: {
-          type: 'string',
-          description: "Time aggregation unit ('HOUR', 'DAY', 'HOUR_OF_DAY', /^TS\\d+$/, 'NONE' allowed)",
-          default: 'TS60',
-          pattern: '^(HOUR|DAY|HOUR_OF_DAY|TS\\d+|NONE)$'
-        }
-      }
-    },
-    SQLCache: {
-      type: 'object',
-      properties: {
-        beginTime: {
-    SQLCache: {
-      type: 'object',
-      properties: {
-        beginTime: {
-          type: 'string',
-          description: 'Start time (yyyy/mm/dd HH24:MI:SS, C-H1, etc.)',
-          default: 'C-H1',
-          pattern: '^(\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}|C(-[SMHDW]\\d+)?|E-[SMHDW]\\d+|B\\+[SMHDW]\\d+|MIN)$'
-        },
-        endTime: {
-          type: 'string',
-          description: 'End time (yyyy/mm/dd HH24:MI:SS, C, etc.)',
-          default: 'C',
-          pattern: '^(\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}|C(-[SMHDW]\\d+)?|B\\+[SMHDW]\\d+|MAX)$'
-        },
-        statementHash: {
-          type: 'string',
-          description: 'Statement Hash',
-          default: '%'
-        },
-        appName: {
-          type: 'string',
-          description: 'Application Name',
-          default: '%'
-        },
-        appSource: {
-          type: 'string',
-          description: 'Application Source',
-          default: '%'
-        },
-        timeAggregateBy: {
-          type: 'string',
-          description: "Time aggregation unit ('HOUR', 'DAY', 'HOUR_OF_DAY', /^TS\\d+$/, 'NONE' allowed)",
-          default: 'TS60',
-          pattern: '^(HOUR|DAY|HOUR_OF_DAY|TS\\d+|NONE)$'
-        },
-        orderBy: {
-          type: 'string',
-          description: "Sort key (allowed: TIME, EXEC, PREP, CURSOR, OPEN, FETCH, LOCK, EXECUTIONS, RECORDS, NETWORK_COUNT, NETWORK_SIZE, NETWORK_TIME, MEMORY, MEM_PER_EXEC, PLAN_MEM, THREAD, BC_MISS_COUNT, BC_IO_SIZE)",
-          default: 'TIME',
-          enum: ['TIME', 'EXEC', 'PREP', 'CURSOR', 'OPEN', 'FETCH', 'LOCK', 'EXECUTIONS', 'RECORDS', 'NETWORK_COUNT', 'NETWORK_SIZE', 'NETWORK_TIME', 'MEMORY', 'MEM_PER_EXEC', 'PLAN_MEM', 'THREAD', 'BC_MISS_COUNT', 'BC_IO_SIZE']
-        }
-      }
-    },
-          type: 'string',
-          description: '시작 시간 (yyyy/mm/dd 00:00:00 포맷 또는 C-D1, C-M30 등 상대적 시간)',
-          default: 'C-D1',
-          pattern: '^(\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}|C(-[SMHDW]\\d+)?|E-[SMHDW]\\d+|B\\+[SMHDW]\\d+|MIN)$'
-        },
-        endTime: {
-          type: 'string',
-          description: '종료 시간 (yyyy/mm/dd 00:00:00 포맷 또는 C, C-S30 등 상대적 시간)',
-          default: 'C',
-          pattern: '^(\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}|C(-[SMHDW]\\d+)?|B\\+[SMHDW]\\d+|MAX)$'
-        },
-        statementHash: { type: 'string', description: 'Statement Hash', default: '%' },
-        workloadClass: { type: 'string', description: 'Workload Class', default: '%' },
-        appUser: { type: 'string', description: 'Application User', default: '%' },
-        appSource: { type: 'string', description: 'Application Source', default: '%' },
-        bindValues: { type: 'string', description: 'Bind Values', default: '%' },
-        timeAggregateBy: {
-          type: 'string',
-          description: "시간 집계 단위 ('HOUR', 'DAY', 'HOUR_OF_DAY', /^TS\\d+$/, 'NONE' 허용)",
-          default: 'TS60',
-          pattern: '^(HOUR|DAY|HOUR_OF_DAY|TS\\d+|NONE)$'
-        },
-        orderBy: {
-          type: 'string',
-          description: "정렬 기준 (허용값: TIME, DURATION, MEMORY, COUNT, CPU, EXECUTIONS, LENGTH)",
-          default: 'TIME',
-          enum: ['TIME', 'DURATION', 'MEMORY', 'COUNT', 'CPU', 'EXECUTIONS', 'LENGTH']
-        }
-      }
-    },
-    LoadHistory: {
-      type: 'object',
-      properties: {
-        beginTime: {
-          type: 'string',
-          description: '시작 시간 (yyyy/mm/dd HH24:MI:SS, C-H1 등)',
-          default: 'C-H1',
-          pattern: '^(\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}|C(-[SMHDW]\\d+)?|E-[SMHDW]\\d+|B\\+[SMHDW]\\d+|MIN)$'
-        },
-        endTime: {
-          type: 'string',
-          description: '종료 시간 (yyyy/mm/dd HH24:MI:SS, C 등)',
-          default: 'C',
-          pattern: '^(\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}|C(-[SMHDW]\\d+)?|B\\+[SMHDW]\\d+|MAX)$'
-        },
-        aggregationType: {
-          type: 'string',
-          description: '집계 방식 (AVG: 평균, PEAK: 최대)',
-          default: 'AVG',
-          enum: ['AVG', 'PEAK']
-        },
-        timeAggregateBy: {
-          type: 'string',
-          description: "시간 집계 단위 ('HOUR', 'DAY', 'HOUR_OF_DAY', /^TS\\d+$/, 'NONE' 허용)",
-          default: 'TS60',
-          pattern: '^(HOUR|DAY|HOUR_OF_DAY|TS\\d+|NONE)$'
-        }
-      }
-    },
-    Memory_TopConsumers_TimeSlices: {
-      type: 'object',
-      properties: {
-        beginTime: {
-          type: 'string',
-          description: '시작 시간 (yyyy/mm/dd HH24:MI:SS, C-H1 등)',
-          default: 'C-H1',
-          pattern: '^(\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}|C(-[SMHDW]\\d+)?|E-[SMHDW]\\d+|B\\+[SMHDW]\\d+|MIN)$'
-        },
-        endTime: {
-          type: 'string',
-          description: '종료 시간 (yyyy/mm/dd HH24:MI:SS, C 등)',
-          default: 'C',
-          pattern: '^(\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}|C(-[SMHDW]\\d+)?|B\\+[SMHDW]\\d+|MAX)$'
-        },
-        objectLevel: { type: 'string', description: '객체 레벨 (TABLE, PARTITION)', default: 'TABLE' },
-        timeAggregateBy: {
-          type: 'string',
-          description: "시간 집계 단위 ('HOUR', 'DAY', 'HOUR_OF_DAY', /^TS\\d+$/, 'NONE' 허용)",
-          default: 'TS60',
-          pattern: '^(HOUR|DAY|HOUR_OF_DAY|TS\\d+|NONE)$'
-        }
-      }
-    },
-    SQLCacheTopLists: { type: 'object', properties: {
-      beginTime: {
-        type: 'string',
-        description: '시작 시간 (yyyy/mm/dd HH24:MI:SS, C-H1 등)',
-        default: 'C-H1',
-        pattern: '^(\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}|C(-[SMHDW]\\d+)?|E-[SMHDW]\\d+|B\\+[SMHDW]\\d+|MIN)$'
-      },
-      endTime: {
-        type: 'string',
-        description: '종료 시간 (yyyy/mm/dd HH24:MI:SS, C 등)',
-        default: 'C',
-        pattern: '^(\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}|C(-[SMHDW]\\d+)?|B\\+[SMHDW]\\d+|MAX)$'
-      },
-      tableName: { type: 'string', description: '테이블 이름', default: '%' }
-    } },
-    StatementHash_DataCollector: { type: 'object', properties: {
-      beginTime: {
-        type: 'string',
-        description: '시작 시간 (yyyy/mm/dd HH24:MI:SS, C-H1 등)',
-        default: 'C-H1',
-        pattern: '^(\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}|C(-[SMHDW]\\d+)?|E-[SMHDW]\\d+|B\\+[SMHDW]\\d+|MIN)$'
-      },
-      endTime: {
-        type: 'string',
-        description: '종료 시간 (yyyy/mm/dd HH24:MI:SS, C 등)',
-        default: 'C',
-        pattern: '^(\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}|C(-[SMHDW]\\d+)?|B\\+[SMHDW]\\d+|MAX)$'
-      },
-      statementHash: { type: 'string', description: 'Statement Hash', default: '%' },
-      maxResultLines: { type: 'string', description: '최대 결과 줄 수', default: '30' },
-      timeUnit: { type: 'string', description: '시간 단위 (MS, S, M, H, D)', default: 'MS', pattern: '^(MS|S|M|H|D)$' }
-    } },
-    // CustomQuery: {
-    //   type: 'object',
-    //   properties: {
-    //     query: { type: 'string', description: '실행할 SQL 쿼리' },
-    //     description: { type: 'string', description: '쿼리 설명' }
-    //   },
-    //   required: ['query']
-    // },
-    Configuration_MiniChecks: { type: 'object', properties: {} },
-    ThreadSamples_AggregationPerTimeSlice: { type: 'object', properties: {
-      beginTime: {
-        type: 'string',
-        description: '시작 시간 (yyyy/mm/dd HH24:MI:SS, C-H1 등)',
-        default: 'C-H1',
-        pattern: '^(\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}|C(-[SMHDW]\\d+)?|E-[SMHDW]\\d+|B\\+[SMHDW]\\d+|MIN)$'
-      },
-      endTime: {
-        type: 'string',
-        description: '종료 시간 (yyyy/mm/dd HH24:MI:SS, C 등)',
-        default: 'C',
-        pattern: '^(\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}|C(-[SMHDW]\\d+)?|B\\+[SMHDW]\\d+|MAX)$'
-      },
-      statementHash: { type: 'string', description: 'Statement Hash', default: '%' },
-      statementId: { type: 'string', description: 'Statement ID', default: '%' },
-      appUser: { type: 'string', description: 'Application User', default: '%' },
-      appSource: { type: 'string', description: 'Application Source', default: '%' },
-      passportAction: { type: 'string', description: 'Passport Action', default: '%' },
-      aggregateBy: { type: 'string', description: 'Aggregate By', default: 'HASH', pattern: '^(SAMPLE_TIME|SITE_ID|HOST|PORT|THREAD_ID|THREAD_TYPE|THREAD_METHOD|THREAD_DETAIL|THREAD_STATE|STATE_LOCK|HASH|ROOT|DB_USER|APP_NAME|APP_USER|APP_SOURCE|APP_COMP_NAME|APP_COMP_TYPE|CLIENT_IP|CLIENT_PID|CONN_ID|LOCK_TYPE|LOCK_NAME|STATEMENT_ID|STAT_EXEC_ID|NUMA_NODE|STMT_THR_LMT|QUEUEING|PASSPORT_COMPONENT|PASSPORT_ACTION|WORKLOAD_CLASS)$' }
-    } },
-    ThreadSamples_FilterAndAggregation: { type: 'object', properties: {
-      beginTime: {
-        type: 'string',
-        description: '시작 시간 (yyyy/mm/dd HH24:MI:SS, C-H1 등)',
-        default: 'C-H1',
-        pattern: '^(\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}|C(-[SMHDW]\\d+)?|E-[SMHDW]\\d+|B\\+[SMHDW]\\d+|MIN)$'
-      },
-      endTime: {
-        type: 'string',
-        description: '종료 시간 (yyyy/mm/dd HH24:MI:SS, C 등)',
-        default: 'C',
-        pattern: '^(\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2}|C(-[SMHDW]\\d+)?|B\\+[SMHDW]\\d+|MAX)$'
-      },
-      statementHash: { type: 'string', description: 'Statement Hash', default: '%' },
-      rootStatementHash: { type: 'string', description: 'Root Statement Hash', default: '%' },
-      statementId: { type: 'string', description: 'Statement ID', default: '%' },
-      appUser: { type: 'string', description: 'Application User', default: '%' },
-      appSource: { type: 'string', description: 'Application Source', default: '%' },
-      passportAction: { type: 'string', description: 'Passport Action', default: '%' },
-      orderBy: { type: 'string', description: 'OrderBy', default: 'TIME', pattern: '^(TIME|EXEC|PREP|CURSOR|OPEN|FETCH|LOCK|EXECUTIONS|RECORDS|NETWORK_COUNT|NETWORK_SIZE|NETWORK_TIME|MEMORY|MEM_PER_EXEC|PLAN_MEM|THREAD|BC_MISS_COUNT|BC_IO_SIZE)$' }
-    } },
-  };
-
-  // 도구명-핸들러 매핑
-  private toolHandlerMap: Record<string, (args: any) => Promise<any>> = {
-    SystemOverview: handleSystemOverview,
-    Resources_CPUAndMemory: handleResources_CPUAndMemory,
-    SQLCache: handleSQLCache,
-    ExpensiveStatements: handleExpensiveStatements,
-    LoadHistory: handleLoadHistory,
-    Memory_TopConsumers_TimeSlices: handleMemory_TopConsumers_TimeSlices,
-    SQLCacheTopLists: handleSQLCacheTopLists,
-    StatementHash_DataCollector: handleStatementHash_DataCollector,
-    // CustomQuery: handleCustomQuery,
-    Configuration_MiniChecks: handleConfiguration_MiniChecks,
-    ThreadSamples_AggregationPerTimeSlice: handleThreadSamples_AggregationPerTimeSlice,
-    ThreadSamples_FilterAndAggregation: handelThreadSamples_FilterAndAggregation,
-  };
+  private readonly tools: ToolDefinition[] = toolDefinitions;
 
   constructor() {
     this.hanaConfig = getConfig();
@@ -351,10 +69,10 @@ export class HanaMonitoringServer {
   private registerToolListHandler() {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
-        tools: Object.keys(this.toolDescriptions).map((toolName) => ({
-          name: toolName,
-          description: this.toolDescriptions[toolName],
-          inputSchema: this.toolInputSchemas[toolName] || { type: 'object', properties: {} }
+        tools: this.tools.map(({ name, description, inputSchema }) => ({
+          name,
+          description,
+          inputSchema
         }))
       };
     });
@@ -480,8 +198,9 @@ export class HanaMonitoringServer {
             performanceAnalysis: [],
             others: []
           };
-          for (const toolName of Object.keys(this.toolHandlerMap)) {
-            const desc = (this.toolDescriptions[toolName] || '').toLowerCase();
+          for (const toolDefinition of this.tools) {
+            const toolName = toolDefinition.name;
+            const desc = (toolDefinition.description || '').toLowerCase();
             const name = toolName.toLowerCase();
             if (systemMonitoringKeywords.some(k => name.includes(k) || desc.includes(k))) {
               categories.systemMonitoring!.push(toolName);
@@ -499,7 +218,7 @@ export class HanaMonitoringServer {
                 uri,
                 mimeType: 'application/json',
                 text: JSON.stringify({
-                  totalTools: Object.keys(this.toolHandlerMap).length,
+                  totalTools: this.tools.length,
                   categories,
                   description: 'SAP HANA 데이터베이스 모니터링을 위한 MCP 서버입니다.',
                   features: [
@@ -656,8 +375,8 @@ export class HanaMonitoringServer {
       const startTime = Date.now();
       let response;
       try {
-        const handler = this.toolHandlerMap[request.params.name];
-        if (!handler) {
+        const tool = this.tools.find((entry) => entry.name === request.params.name);
+        if (!tool) {
           throw new McpError(
             ErrorCode.MethodNotFound,
             `알 수 없는 도구: ${request.params.name}`
@@ -670,7 +389,7 @@ export class HanaMonitoringServer {
             delete args[key]; // 또는 args[key] = '';
           }
         }
-        response = await handler(args);
+        response = await tool.handler(args);
         // 결과 저장 및 히스토리 관리 (기존 코드 유지)
         const endTime = Date.now();
         const executionTime = endTime - startTime;

@@ -8,6 +8,7 @@ This project provides a Monitoring Server for SAP HANA databases, utilizing the 
 - **Extensible:** New monitoring tools can be easily added by implementing new handlers.
 - **MCP Compliant:** Implements the Model Context Protocol for standardized communication.
 - **Resource-based Information:** Exposes various information through resources, such as configuration, status, and query templates.
+- **Dual Mode Support:** Supports local MCP stdio mode and remote HTTP/SSE mode.
 
 ## Available Tools
 
@@ -49,7 +50,7 @@ The server exposes the following resources:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-repo/mcp-hana-monitoring.git
+  git clone https://github.com/workskong/mcp-hana-api.git
    ```
 2. Install dependencies:
    ```bash
@@ -69,14 +70,43 @@ The server exposes the following resources:
   ```bash
   npm run build
   ```
-- **Start the server:**
+- **Start local MCP server (stdio):**
   ```bash
   npm start
+  ```
+- **Start remote MCP server (HTTP/SSE):**
+  ```bash
+  # Optional (default: 6968)
+  export PORT=6968
+  npm run start-remote
   ```
 - **Start in development mode with inspector:**
   ```bash
   npm run dev
   ```
+
+## Remote Endpoints
+
+When running with `npm run start-remote`, the following endpoints are available:
+
+- **GET `/`**: server health and metadata
+- **GET `/tools`**: list available tools and input schemas
+- **POST `/call`**: execute a tool with `{ name, arguments }`
+- **POST `/`**: MCP JSON-RPC endpoint (`initialize`, `tools/list`, `tools/call`)
+- **GET `/events`** and **GET `/sse`**: Server-Sent Events streams
+- **POST `/emit`**: emit SSE test events (`{ event, data, topic? }`)
+- **GET `/authorize`**: simple authorization callback page
+
+### Remote HANA Connection Inputs
+
+Remote mode supports per-request HANA credentials through HTTP headers:
+
+- `X-HANA-HOST`
+- `X-HANA-PORT`
+- `X-HANA-USER`
+- `X-HANA-PASSWORD`
+
+If headers are omitted, the server falls back to environment variables (`HANA_HOST`, `HANA_PORT`, `HANA_USER`/`HANA_UID`, `HANA_PASSWORD`/`HANA_PWD`).
 
 ### Testing
 

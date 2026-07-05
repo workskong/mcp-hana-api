@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Logger = void 0;
+exports.getPackageInfo = getPackageInfo;
 exports.createConnection = createConnection;
 exports.executeQuery = executeQuery;
 exports.closeConnection = closeConnection;
@@ -44,7 +45,29 @@ exports.normalizeDateTime = normalizeDateTime;
 exports.getOrDefault = getOrDefault;
 exports.cleanup = cleanup;
 const hana = __importStar(require("@sap/hana-client"));
+const fs_1 = require("fs");
+const path_1 = require("path");
 let connection = null;
+let activeConnectionConfig = null;
+function isSameConfig(a, b) {
+    return a.serverNode === b.serverNode && a.uid === b.uid && a.pwd === b.pwd;
+}
+function getPackageInfo() {
+    try {
+        const packagePath = (0, path_1.join)(process.cwd(), 'package.json');
+        const packageJson = JSON.parse((0, fs_1.readFileSync)(packagePath, 'utf8'));
+        return {
+            name: packageJson.name || 'mcp-hana-monitoring',
+            version: packageJson.version || '0.0.0'
+        };
+    }
+    catch {
+        return {
+            name: 'mcp-hana-monitoring',
+            version: '0.0.0'
+        };
+    }
+}
 /**
  * 구조화된 로깅 시스템
  */
@@ -98,8 +121,12 @@ const logger = Logger.getInstance();
  */
 async function createConnection(config) {
     if (connection) {
-        logger.debug('기존 연결 재사용');
-        return connection;
+        if (activeConnectionConfig && isSameConfig(activeConnectionConfig, config)) {
+            logger.debug('기존 연결 재사용');
+            return connection;
+        }
+        logger.info('연결 설정 변경 감지 - 기존 연결 종료 후 재연결');
+        closeConnection();
     }
     logger.info('새로운 HANA 연결 생성', { serverNode: config.serverNode, uid: config.uid });
     connection = hana.createConnection();
@@ -112,10 +139,16 @@ async function createConnection(config) {
         connection.connect(connParams, (err) => {
             if (err) {
                 connection = null;
+                activeConnectionConfig = null;
                 logger.error('HANA 연결 실패', { error: err.message || err });
                 reject(new Error(`HANA 연결 실패: ${err.message || err}`));
             }
             else {
+                activeConnectionConfig = {
+                    serverNode: config.serverNode,
+                    uid: config.uid,
+                    pwd: config.pwd
+                };
                 logger.info('HANA 연결 성공');
                 resolve(connection);
             }
@@ -165,6 +198,7 @@ function closeConnection() {
         }
         finally {
             connection = null;
+            activeConnectionConfig = null;
         }
     }
     else {

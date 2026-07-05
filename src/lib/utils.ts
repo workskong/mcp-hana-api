@@ -1,6 +1,29 @@
 import * as hana from '@sap/hana-client';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 let connection: any = null;
+let activeConnectionConfig: HanaConfig | null = null;
+
+function isSameConfig(a: HanaConfig, b: HanaConfig): boolean {
+  return a.serverNode === b.serverNode && a.uid === b.uid && a.pwd === b.pwd;
+}
+
+export function getPackageInfo(): { name: string; version: string } {
+  try {
+    const packagePath = join(process.cwd(), 'package.json');
+    const packageJson = JSON.parse(readFileSync(packagePath, 'utf8')) as { name?: string; version?: string };
+    return {
+      name: packageJson.name || 'mcp-hana-monitoring',
+      version: packageJson.version || '0.0.0'
+    };
+  } catch {
+    return {
+      name: 'mcp-hana-monitoring',
+      version: '0.0.0'
+    };
+  }
+}
 
 export interface HanaConfig {
   serverNode: string;
@@ -89,8 +112,13 @@ export async function createConnection(config: {
   pwd: string;
 }): Promise<any> {
   if (connection) {
-    logger.debug('기존 연결 재사용');
-    return connection;
+    if (activeConnectionConfig && isSameConfig(activeConnectionConfig, config)) {
+      logger.debug('기존 연결 재사용');
+      return connection;
+    }
+
+    logger.info('연결 설정 변경 감지 - 기존 연결 종료 후 재연결');
+    closeConnection();
   }
 
   logger.info('새로운 HANA 연결 생성', { serverNode: config.serverNode, uid: config.uid });
@@ -106,9 +134,15 @@ export async function createConnection(config: {
     connection.connect(connParams, (err: any) => {
       if (err) {
         connection = null;
+        activeConnectionConfig = null;
         logger.error('HANA 연결 실패', { error: err.message || err });
         reject(new Error(`HANA 연결 실패: ${err.message || err}`));
       } else {
+        activeConnectionConfig = {
+          serverNode: config.serverNode,
+          uid: config.uid,
+          pwd: config.pwd
+        };
         logger.info('HANA 연결 성공');
         resolve(connection);
       }
@@ -161,6 +195,7 @@ export function closeConnection(): void {
       logger.error('연결 종료 중 오류', { error: error instanceof Error ? error.message : String(error) });
     } finally {
       connection = null;
+      activeConnectionConfig = null;
     }
   } else {
     logger.debug('종료할 연결이 없습니다');
